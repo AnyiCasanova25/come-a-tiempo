@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Camera, ImagePlus, X, Loader2, ScanText } from 'lucide-react'
+import { Camera, ImagePlus, X, Loader2, ScanText, Copy } from 'lucide-react'
 import { prepararFoto, leerTirilla, obtenerLectorTirilla } from '../ocr'
 import { interpretarTirilla } from '../leerTirilla'
 import { hoyISO } from '../fechas'
 import Revision from './Revision'
+import { avisar } from './Aviso'
 
 // Foto(s) de la tirilla del súper → productos con cantidad y precio → revisión.
 // Todo se lee en el celular (Tesseract): gratis y sin enviar las fotos a ningún lado.
@@ -168,6 +169,18 @@ function TextoLeido({ texto }) {
     <details className="texto-leido">
       <summary>Ver el texto que se leyó</summary>
       <pre>{texto}</pre>
+      <button className="boton boton-secundario" onClick={() => copiar(texto)}>
+        <Copy size={18} /> Copiar el texto
+      </button>
     </details>
   )
+}
+
+async function copiar(texto) {
+  try {
+    await navigator.clipboard.writeText(texto)
+    avisar('Texto copiado')
+  } catch {
+    avisar('Mantén presionado el texto para copiarlo')
+  }
 }
