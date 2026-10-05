@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { ScanBarcode, PenLine, Loader2, Check, Camera, ClipboardList } from 'lucide-react'
+import { ScanBarcode, PenLine, Loader2, Check, Camera, ClipboardList, ReceiptText } from 'lucide-react'
 import Escaner from '../componentes/Escaner'
 import EscanerFecha from '../componentes/EscanerFecha'
 import PegarLista from '../componentes/PegarLista'
+import Tirilla from '../componentes/Tirilla'
 import { obtenerLector } from '../ocr'
 import { avisar } from '../componentes/Aviso'
 import { CATEGORIAS, UBICACIONES, categoria } from '../categorias'
@@ -41,7 +42,7 @@ function formularioVacio(base = {}) {
 }
 
 export default function Agregar({ ir }) {
-  // paso: inicio | escaneando | buscando | fecha | formulario | pegar
+  // paso: inicio | escaneando | buscando | fecha | formulario | pegar | tirilla
   const [paso, setPaso] = useState('inicio')
   const [fechaLeida, setFechaLeida] = useState(null) // la que leyó la cámara
   const [form, setForm] = useState(formularioVacio())
@@ -163,6 +164,14 @@ export default function Agregar({ ir }) {
     )
   }
 
+  if (paso === 'tirilla') {
+    return (
+      <div className="pagina">
+        <Tirilla productos={productos} onListo={() => ir('despensa')} onCancelar={() => setPaso('inicio')} />
+      </div>
+    )
+  }
+
   if (paso === 'pegar') {
     return (
       <div className="pagina">
@@ -203,6 +212,9 @@ export default function Agregar({ ir }) {
         <div className="pila">
           <button className="boton boton-grande" onClick={() => setPaso('escaneando')}>
             <ScanBarcode /> Escanear código de barras
+          </button>
+          <button className="boton boton-grande boton-secundario" onClick={() => setPaso('tirilla')}>
+            <ReceiptText /> Foto de la tirilla
           </button>
           <button className="boton boton-grande boton-secundario" onClick={aMano}>
             <PenLine /> Escribir a mano

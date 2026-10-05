@@ -126,3 +126,96 @@ function filtrar(g, w, h, r, fn) {
   }
   return out
 }
+
+// ---------- Tirillas ----------
+// Otro lector, en español y para texto en columna (los nombres traen Ñ y tildes).
+let lectorTirilla = null
+let alProgreso = null
+
+export function obtenerLectorTirilla() {
+  if (!lectorTirilla) {
+    lectorTirilla = (async () => {
+      const w = await createWorker('spa', 1, {
+        logger: (m) => m.status === 'recognizing text' && alProgreso?.(m.progress),
+      })
+      await w.setParameters({
+        // Bloque único: mantiene cada renglón entero (nombre … precio). En modo columna
+        // Tesseract separaba los precios de la derecha y se perdían
+        tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
+        preserve_interword_spaces: '1',
+        user_defined_dpi: '300',
+      })
+      return w
+    })().catch((e) => {
+      lectorTirilla = null
+      throw e
+    })
+  }
+  return lectorTirilla
+}
+
+/** Lee una foto ya preparada; onProgreso recibe de 0 a 1 */
+export async function leerTirilla(canvas, onProgreso) {
+  const w = await obtenerLectorTirilla()
+  alProgreso = onProgreso
+  try {
+    const { data } = await w.recognize(canvas)
+    return data.text
+  } finally {
+    alProgreso = null
+  }
+}
+
+/**
+ * Prepara la foto de una tirilla: la endereza según la cámara (EXIF), la deja de
+ * un tamaño manejable y la pasa a blanco y negro con un umbral adaptativo
+ * (cada punto se compara con el promedio de sus vecinos), que aguanta sombras
+ * y papel térmico desteñido mucho mejor que un umbral fijo.
+ */
+export async function prepararFoto(archivo) {
+  const bitmap = await createImageBitmap(archivo, { imageOrientation: 'from-image' })
+  // Lado largo máximo de 2200 px: en una foto normal de tirilla deja la letra de
+  // ~25-30 px de alto (lo que mejor lee Tesseract) sin volverlo lento
+  const escala = Math.min(1, 2200 / Math.max(bitmap.width, bitmap.height))
+  const w = Math.round(bitmap.width * escala)
+  const h = Math.round(bitmap.height * escala)
+  const lienzo = document.createElement('canvas')
+  lienzo.width = w
+  lienzo.height = h
+  const ctx = lienzo.getContext('2d', { willReadFrequently: true })
+  ctx.drawImage(bitmap, 0, 0, w, h)
+  bitmap.close?.()
+
+  const img = ctx.getImageData(0, 0, w, h)
+  const px = img.data
+  const gris = new Float64Array(w * h)
+  for (let i = 0, j = 0; i < px.length; i += 4, j++) gris[j] = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2]
+
+  // Imagen integral para sacar el promedio de cualquier ventana en tiempo constante
+  const integral = new Float64Array((w + 1) * (h + 1))
+  for (let y = 1; y <= h; y++) {
+    let fila = 0
+    for (let x = 1; x <= w; x++) {
+      fila += gris[(y - 1) * w + (x - 1)]
+      integral[y * (w + 1) + x] = integral[(y - 1) * (w + 1) + x] + fila
+    }
+  }
+  const r = Math.max(8, Math.round(Math.max(w, h) / 50)) // ventana ~ alto de una letra grande
+  const T = 0.14 // qué tan más oscuro que sus vecinos debe ser un punto para ser tinta
+  for (let y = 0; y < h; y++) {
+    const y0 = Math.max(0, y - r)
+    const y1 = Math.min(h, y + r + 1)
+    for (let x = 0; x < w; x++) {
+      const x0 = Math.max(0, x - r)
+      const x1 = Math.min(w, x + r + 1)
+      const suma =
+        integral[y1 * (w + 1) + x1] - integral[y0 * (w + 1) + x1] - integral[y1 * (w + 1) + x0] + integral[y0 * (w + 1) + x0]
+      const media = suma / ((x1 - x0) * (y1 - y0))
+      const v = gris[y * w + x] < media * (1 - T) ? 0 : 255
+      const i = (y * w + x) * 4
+      px[i] = px[i + 1] = px[i + 2] = v
+    }
+  }
+  ctx.putImageData(img, 0, 0)
+  return lienzo
+}

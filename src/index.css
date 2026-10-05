@@ -328,3 +328,23 @@ input:focus-visible, select:focus-visible, button:focus-visible {
   background: var(--fondo); padding: 8px 0; box-shadow: 0 -8px 12px var(--fondo);
 }
 
+.revision-fila input.revision-precio { width: 110px; flex: none; }
+
+/* ---------- Tirilla ---------- */
+.miniaturas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.miniatura { position: relative; aspect-ratio: 3 / 4; border-radius: 10px; overflow: hidden; background: var(--superficie-2); }
+.miniatura img { width: 100%; height: 100%; object-fit: cover; }
+.miniatura-numero {
+  position: absolute; left: 6px; bottom: 6px; background: rgb(0 0 0 / 0.6); color: #fff;
+  border-radius: 99px; padding: 0 8px; font-size: 0.8rem; font-weight: 600;
+}
+.miniatura-quitar { position: absolute; top: 4px; right: 4px; width: 30px; height: 30px; background: rgb(0 0 0 / 0.55); color: #fff; }
+.progreso { width: 100%; max-width: 280px; height: 8px; background: var(--superficie-2); border-radius: 99px; overflow: hidden; }
+.progreso span { display: block; height: 100%; background: var(--primario); transition: width 0.3s; }
+.texto-leido { font-size: 0.85rem; color: var(--texto-suave); }
+.texto-leido summary { cursor: pointer; padding: 8px 0; }
+.texto-leido pre {
+  white-space: pre-wrap; font-size: 0.78rem; background: var(--superficie); border: 1px solid var(--borde);
+  border-radius: 10px; padding: 10px; max-height: 300px; overflow: auto;
+}
+.alerta-texto { color: var(--rojo); }

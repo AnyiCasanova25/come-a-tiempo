@@ -11,6 +11,7 @@ npm run dev        # en el PC: http://localhost:5173
 npm run movil      # en la red local con HTTPS, para probar la cámara desde el celular
 npm run build      # versión final en dist/
 npm run iconos     # regenera los PNG a partir de public/favicon.svg
+npm test           # pruebas de los intérpretes (fechas, listas, tirillas)
 ```
 
 Con `npm run movil`, en el celular (misma Wi-Fi) abrir `https://<IP-del-PC>:5173`
@@ -27,6 +28,10 @@ notificaciones no: para eso hay que publicarla (GitHub Pages o Netlify, gratis).
 | `src/categorias.js` | Categorías con su vida útil típica y mapeo desde Open Food Facts |
 | `src/openfoodfacts.js` | Busca el nombre del producto por código de barras (base libre) |
 | `src/notificaciones.js` | Alertas: al abrir la app y en segundo plano (Android) |
+| `src/leerFecha.js` | Interpreta fechas de vencimiento (OCR o texto escrito) |
+| `src/leerTirilla.js` | Interpreta el texto de una tirilla: productos, cantidades, precios, descuentos |
+| `src/pegarLista.js` | Interpreta una lista escrita a mano ("Queso 10 nov 2026") |
+| `src/ocr.js` | Lectores Tesseract (fechas en video, tirillas en foto) y limpieza de imagen |
 | `public/sw-alertas.js` | Código del service worker para las alertas en segundo plano |
 | `src/paginas/` | Inicio, En casa, Agregar, Lista, Ajustes |
 
@@ -43,6 +48,7 @@ Los ids son UUID y cada fila tiene `actualizado` para sincronizar con Supabase (
 ## Fases
 
 1. ✅ Inventario, código de barras, carga manual, semáforo de vencimiento, alertas, lista con sugerencias.
-2. ⏳ Foto de la tirilla y foto de la fecha de vencimiento con OCR gratuito (Tesseract.js).
+2. ✅ Fecha de vencimiento con la cámara, "Pegar lista" (WhatsApp/notas) y foto de la tirilla
+   (productos, cantidades y precios), todo con OCR gratuito en el celular (Tesseract.js).
 3. ⏳ Consumo mes a mes y lista de compras automática según el ritmo de consumo.
 4. ⏳ Despensa compartida con la familia (Supabase, plan gratis) y notificaciones push de servidor.
