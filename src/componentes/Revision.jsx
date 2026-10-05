@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Check, ArrowLeft, Camera } from 'lucide-react'
+import { Check, ArrowLeft, Camera, Plus } from 'lucide-react'
 import { CATEGORIAS, categoria } from '../categorias'
 import { guardarProducto, agregarLote } from '../db'
-import { textoVence, pesos } from '../fechas'
+import { textoVence, pesos, hoyISO, sumarDias } from '../fechas'
 import EscanerFecha from './EscanerFecha'
 import { avisar } from './Aviso'
 
@@ -14,6 +14,25 @@ export default function Revision({ titulo, subtitulo, filas, setFilas, conPrecio
 
   const cambiar = (clave, cambios) => setFilas((fs) => fs.map((f) => (f.clave === clave ? { ...f, ...cambios } : f)))
   const fechaReal = (vence) => ({ vence, estimada: false, aviso: null, advertencia: false })
+
+  // Fila en blanco para un producto que el lector se saltó
+  const agregarFila = () =>
+    setFilas((fs) => [
+      ...fs,
+      {
+        clave: `nueva-${Date.now()}`,
+        nombre: '',
+        productoId: null,
+        categoria: 'otros',
+        vence: sumarDias(hoyISO(), categoria('otros').dias),
+        estimada: true,
+        aviso: 'Escribe el nombre, el precio y la fecha',
+        advertencia: false,
+        cantidad: 1,
+        precio: null,
+        incluir: true,
+      },
+    ])
 
   const incluidas = filas.filter((f) => f.incluir && f.nombre.trim() && f.vence)
 
@@ -165,6 +184,12 @@ export default function Revision({ titulo, subtitulo, filas, setFilas, conPrecio
           </div>
         ))}
       </div>
+
+      {conPrecio && (
+        <button className="boton boton-secundario" onClick={agregarFila}>
+          <Plus size={18} /> Agregar un producto que faltó
+        </button>
+      )}
 
       <div className="fila barra-acciones">
         <button className="boton boton-secundario" onClick={onVolver}>

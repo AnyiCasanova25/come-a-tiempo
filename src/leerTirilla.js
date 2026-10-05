@@ -46,8 +46,9 @@ const ES_PESO = /\b(KG|KGS|KILO|GR|GRS|G|LB)\b|\/KG|\/LB/
 //   "1.000 und   5200   5200*"   ·   "0.790 kg   26900   21251"   ·   "1.000 sixp 17700 17700*"
 // Tolera lo que suele hacer el OCR: "und" leído "ung"/"umd", el "1." perdido ("000 und"),
 // basura antes o después y el asterisco leído como otro carácter ("1900»")
+// (hasta dos "palabras" basura de 1-3 caracteres al comienzo: "o 1.000 und", "= qa 000 und")
 const CANTIDAD_SIESA =
-  /^[^A-Z\d]*(\d*[.,]?\d{3}|\d{1,2})\s*(U[A-Z\d]{1,3}|K[G6]S?|GRS?|LB|P[A-Z\d]T|PAQ|SIXP?|LTS?|BLS|DOC|CJ|CAJA)\.?\s+\$?(\d[\d.,]*)\s+\$?(\d[\d.,]*)[^\d]*$/
+  /^(?:\S{1,3}\s+){0,2}[^A-Z\d]*(\d+[.,]\d{1,3}|\d{1,3})\s*(U[A-Z\d]{0,3}|K[G6]S?|GRS?|LB|P[A-Z\d]T|PAQ|SIXP?|LTS?|BLS|DOC|CJ|CAJA)\.?\s+\$?(\d[\d.,]*)\s+(?:[^\d\s]{1,2}\s+)?\$?(\d[\d.,]*)[^\d\s]*(?:\s+\S{1,3})*\s*$/
 const UNIDAD_PESO = /^(K[G6]S?|GRS?|LB)$/
 
 /**
@@ -55,15 +56,34 @@ const UNIDAD_PESO = /^(K[G6]S?|GRS?|LB)$/
  * si "cantidad × unitario" no da el total, casi siempre el OCR leyó el asterisco como
  * un dígito más ("6250*" → "62504") o perdió la cantidad.
  */
-function cuadrarSiesa(cantidadLeida, porPeso, unitario, total) {
-  if (porPeso || !unitario) return { cantidad: 1, precio: total || unitario }
+function cuadrarSiesa(cantidadLeida, kilos, porPeso, unitario, total) {
+  if (!unitario) return { cantidad: 1, precio: total }
+  if (porPeso) {
+    // kilos × precio por kilo: si el total leído se parece (un dígito mal leído), vale la cuenta
+    const calculado = Math.round(kilos * unitario)
+    const cerca = total && Math.abs(total - calculado) <= calculado * 0.02
+    return { cantidad: 1, precio: cerca || !total ? calculado : total }
+  }
   const esperado = cantidadLeida * unitario
   if (total && Math.abs(total - esperado) <= esperado * 0.01) return { cantidad: cantidadLeida, precio: total }
   if (total && String(total).startsWith(String(esperado))) return { cantidad: cantidadLeida, precio: esperado }
+  // Un dígito de más o de menos: "19700 → 1900»" (al total le falta uno) o "15800 → 3000"
+  // (al unitario le sobra uno). No se sabe cuál: queda la cuenta, con el total como alterno,
+  // y al final se elige el que haga cuadrar la tirilla con su TOTAL
+  if (total && (sobraUno(String(esperado), String(total)) || sobraUno(String(unitario), String(total / cantidadLeida)))) {
+    return { cantidad: cantidadLeida, precio: esperado, alterno: total }
+  }
   // ¿El total es un múltiplo exacto del unitario? → la cantidad es la que se leyó mal
   const veces = total / unitario
   if (total && Number.isInteger(veces) && veces >= 1 && veces <= 50) return { cantidad: veces, precio: total }
   return { cantidad: cantidadLeida, precio: esperado }
+}
+
+// ¿Se obtiene b quitándole un carácter a a? ("15800" → "1500")
+function sobraUno(a, b) {
+  if (a.length !== b.length + 1) return false
+  for (let i = 0; i < a.length; i++) if (a.slice(0, i) + a.slice(i + 1) === b) return true
+  return false
 }
 
 // El TOTAL cierra la lista de productos (lo que viene después son pagos y resúmenes).
@@ -77,14 +97,26 @@ const aCantidad = (s) => Number(String(s).replace(',', '.'))
 
 function limpiarNombre(nombre) {
   const n = nombre
-    .replace(/[|_=~"'*]/g, ' ')
+    .replace(/[|_=~"'*+”“»«—–]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
-    // Letra o número suelto al final: el nombre se cortó al borde del papel ("CUIDADO T")
-    .replace(/\s\S$/, '')
-    .toLowerCase()
-  return n.charAt(0).toUpperCase() + n.slice(1)
+    // Basura del borde al comienzo (".H ESPARCIBLE") y al final ("CUIDADO T LA", "SAN JORGE 170G E"):
+    // palabras de 1-2 letras o símbolos sueltos
+    .replace(/^(?:\S{1,2}\s+)+(?=\S{3})/, '')
+  // Al final se quitan letras sueltas, dígitos sueltos y símbolos, pero no las unidades
+  const partes = n.split(' ')
+  while (partes.length > 1) {
+    const u = partes.at(-1)
+    const basura = (/^[A-Z]{1,2}$|^\d$/.test(u) && !UNIDADES.test(u)) || /^[^A-Z\d]+$/.test(u)
+    if (!basura) break
+    partes.pop()
+  }
+  const limpio = partes.join(' ').toLowerCase()
+  return limpio.charAt(0).toUpperCase() + limpio.slice(1)
 }
+
+// Unidades que sí van al final de un nombre ("620 ML", "1000 GR")
+const UNIDADES = /^(ML|GR|KG|LT|CC|UN|OZ|LB|MG|G|L)$/
 
 /**
  * Separa el comienzo del renglón: números sueltos (índice, cantidad) y códigos (EAN/PLU).
@@ -105,17 +137,28 @@ function quitarCodigos(texto) {
  * @param {string} hoy    'AAAA-MM-DD'
  * @param {Array} conocidos productos ya guardados (para reusar nombre, categoría y vida útil)
  */
-export function interpretarTirilla(texto, hoy, conocidos = []) {
-  const items = []
-  let pendiente = null // nombre sin precio que espera su renglón de cantidad/peso
-
-  for (const crudo of texto.split(/\r?\n/)) {
-    const linea = sinTildes(crudo)
+function normalizarLinea(crudo) {
+  return (
+    sinTildes(crudo)
       .toUpperCase()
       .replace(/\s+/g, ' ')
       .trim()
       // El OCR confunde la O con el cero dentro de los números: "4.59O" → "4.590"
       .replace(/(?<=\d[.,]?\d*)O|O(?=\d)/g, '0')
+      // Basura del borde del papel antes del número de renglón: "T 3 PAN PERRO", "NO 12 LISTERINE"
+      .replace(/^[^A-Z\d]*(?:[A-Z]{1,2}[^A-Z\d\s]*\s+)?(?=\d{1,3}\s+[^\d\s])/, '')
+  )
+}
+
+export function interpretarTirilla(texto, hoy, conocidos = []) {
+  const items = []
+  let pendiente = null // nombre sin precio que espera su renglón de cantidad/peso
+  const lineas = texto.split(/\r?\n/).map(normalizarLinea)
+  // En el formato SIESA el precio NUNCA va en el renglón del nombre: si se reconoce el
+  // formato, un renglón con "precio" que no es de cantidad es basura o un nombre
+  const esSiesa = lineas.filter((l) => CANTIDAD_SIESA.test(l)).length >= 3
+
+  for (const linea of lineas) {
     if (!linea || !/[A-Z0-9]/.test(linea)) continue
 
     // Fin de la lista de productos
@@ -126,10 +169,11 @@ export function interpretarTirilla(texto, hoy, conocidos = []) {
     if (siesa) {
       const porPeso = UNIDAD_PESO.test(siesa[2])
       // "1.000" = 1 unidad; si se perdió el "1." ("000") se toma 1 y lo corrige cuadrarSiesa
-      const leida = Math.max(1, Math.round(aCantidad(siesa[1])) || 1)
-      const { cantidad, precio } = cuadrarSiesa(leida, porPeso, aNumero(siesa[3]), aNumero(siesa[4]))
+      const kilos = aCantidad(siesa[1])
+      const leida = Math.max(1, Math.round(kilos) || 1)
+      const { cantidad, precio, alterno } = cuadrarSiesa(leida, kilos, porPeso, aNumero(siesa[3]), aNumero(siesa[4]))
       if (pendiente) {
-        items.push({ nombre: pendiente.nombre, lider: pendiente.lider, cantidad, cantidadFija: true, precio })
+        items.push({ nombre: pendiente.nombre, lider: pendiente.lider, cantidad, cantidadFija: true, precio, alterno })
         pendiente = null
       }
       continue
@@ -168,8 +212,8 @@ export function interpretarTirilla(texto, hoy, conocidos = []) {
       continue
     }
 
-    // Renglón de producto con precio al final
-    const precio = linea.match(PRECIO_FINAL)
+    // Renglón de producto con precio al final (en SIESA, solo el nombre)
+    const precio = esSiesa ? null : linea.match(PRECIO_FINAL)
     const cuerpo = precio ? linea.slice(0, precio.index) : linea
     let { lider, resto } = quitarCodigos(cuerpo)
     // Cantidad antes del precio: "YOGURT FRESA 1000G 1 UN"
@@ -198,15 +242,25 @@ export function interpretarTirilla(texto, hoy, conocidos = []) {
 
   // Varias fotos de una tirilla larga se traslapan: el mismo renglón (mismo número y
   // mismas dos primeras palabras) aparece dos veces y se deja uno solo
+  // (mismo número de renglón y mismo precio: el nombre puede salir distinto en cada foto)
   const vistos = new Set()
   const unicos = items.filter((i) => {
     if (i.lider === null) return true
-    const clave = `${i.lider}|${i.nombre.split(' ').slice(0, 2).join(' ')}`
+    const clave = `${i.lider}|${i.precio}`
     if (vistos.has(clave)) return false
     vistos.add(clave)
     return true
   })
   items.splice(0, items.length, ...unicos)
+
+  // Si la suma no da el TOTAL impreso y hay un precio dudoso cuya otra lectura cuadra
+  // exactamente, se usa esa ("19700 → 1900»" o "15800 → 3000": ¿sobra o falta un dígito?)
+  const totalImpreso = totalDeTirilla(texto)
+  if (totalImpreso) {
+    const suma = items.reduce((s, i) => s + (i.precio ?? 0), 0)
+    const dudoso = items.find((i) => i.alterno != null && i.alterno - i.precio === totalImpreso - suma)
+    if (dudoso) dudoso.precio = dudoso.alterno
+  }
 
   // El número del comienzo: si solo va subiendo (1, 2, 3, 5… puede faltar un renglón
   // que el OCR no leyó) es el índice del renglón (Éxito); si no, es la cantidad (D1)
@@ -239,8 +293,10 @@ export function interpretarTirilla(texto, hoy, conocidos = []) {
       categoria: cat,
       vence: sumarDias(hoy, conocido?.vidaUtilDias ?? categoria(cat).dias),
       estimada: true,
-      aviso: categoria(cat).sinFecha ? 'Dura años: fecha estimada' : 'Fecha estimada: escanéala con 📷',
-      advertencia: false,
+      aviso:
+        (dudoso(i) ? `Revisa el precio: ¿$${miles(i.precio)} o $${miles(i.alterno)}? · ` : '') +
+        (categoria(cat).sinFecha ? 'Dura años: fecha estimada' : 'Fecha estimada: escanéala con 📷'),
+      advertencia: dudoso(i),
       cantidad: i.cantidad,
       precio: i.precio ?? null,
       incluir: true,
@@ -259,3 +315,6 @@ export function totalDeTirilla(texto) {
   }
   return null
 }
+
+const dudoso = (i) => i.alterno != null && i.alterno !== i.precio
+const miles = (n) => Number(n).toLocaleString('es-CO')
