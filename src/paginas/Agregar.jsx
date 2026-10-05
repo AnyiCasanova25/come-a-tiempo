@@ -1,12 +1,15 @@
-import { useState } from 'react'
-import { ScanBarcode, PenLine, Loader2, Check } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ScanBarcode, PenLine, Loader2, Check, Camera, ClipboardList } from 'lucide-react'
 import Escaner from '../componentes/Escaner'
+import EscanerFecha from '../componentes/EscanerFecha'
+import PegarLista from '../componentes/PegarLista'
+import { obtenerLector } from '../ocr'
 import { avisar } from '../componentes/Aviso'
 import { CATEGORIAS, UBICACIONES, categoria } from '../categorias'
 import { useProductos } from '../consultas'
 import { buscarPorCodigo, guardarProducto, agregarLote, estimarVence } from '../db'
 import { buscarEnOFF } from '../openfoodfacts'
-import { hoyISO, sumarDias, textoVence } from '../fechas'
+import { hoyISO, sumarDias, textoVence, fechaCorta } from '../fechas'
 
 const ATAJOS = [
   ['3 días', 3],
@@ -31,14 +34,16 @@ function formularioVacio(base = {}) {
     cantidad: 1,
     ubicacion: categoria(cat).ubicacion,
     vence: '',
-    estimar: false,
+    // Enlatados y aseo duran años: por defecto no se les pide la fecha
+    estimar: !!categoria(cat).sinFecha,
     precio: '',
   }
 }
 
-export default function Agregar() {
-  // paso: inicio | escaneando | buscando | formulario
+export default function Agregar({ ir }) {
+  // paso: inicio | escaneando | buscando | fecha | formulario | pegar
   const [paso, setPaso] = useState('inicio')
+  const [fechaLeida, setFechaLeida] = useState(null) // la que leyó la cámara
   const [form, setForm] = useState(formularioVacio())
   const [origen, setOrigen] = useState(null) // de dónde salió el nombre
   const [continuo, setContinuo] = useState(true) // modo "desempacar el mercado"
@@ -47,23 +52,41 @@ export default function Agregar() {
 
   const cambiar = (campo, valor) => setForm((f) => ({ ...f, [campo]: valor }))
 
+  // Mientras se escanea el código, se va preparando el lector de fechas (la
+  // primera vez lo descarga) para que esté listo cuando toque leer la fecha
+  useEffect(() => {
+    if (paso === 'escaneando') obtenerLector().catch(() => {})
+  }, [paso])
+
   const alLeerCodigo = async (codigo) => {
     setPaso('buscando')
     const local = await buscarPorCodigo(codigo)
-    if (local) {
-      setForm(formularioVacio(local))
-      setOrigen('local')
-    } else {
-      const off = await buscarEnOFF(codigo)
-      setForm(formularioVacio({ ...off, codigo }))
-      setOrigen(off ? 'off' : 'nuevo')
-    }
+    const off = local ? null : await buscarEnOFF(codigo)
+    const nuevo = formularioVacio(local ?? { ...off, codigo })
+    setForm(nuevo)
+    setOrigen(local ? 'local' : off ? 'off' : 'nuevo')
+    setFechaLeida(null)
+    // En modo desempacar, después del código sigue directo la fecha
+    // (menos en enlatados y aseo, que duran años y se estiman)
+    setPaso(continuo && !nuevo.estimar ? 'fecha' : 'formulario')
+  }
+
+  const alLeerFecha = (fecha) => {
+    setForm((f) => ({ ...f, vence: fecha.iso, estimar: false }))
+    setFechaLeida(fecha)
+    setPaso('formulario')
+  }
+
+  const sinFecha = () => {
+    setForm((f) => ({ ...f, estimar: true }))
+    setFechaLeida(null)
     setPaso('formulario')
   }
 
   const aMano = () => {
     setForm(formularioVacio())
     setOrigen(null)
+    setFechaLeida(null)
     setPaso('formulario')
   }
 
@@ -85,7 +108,13 @@ export default function Agregar() {
   }
 
   const cambiarCategoria = (cat) =>
-    setForm((f) => ({ ...f, categoria: cat, ubicacion: categoria(cat).ubicacion }))
+    setForm((f) => ({
+      ...f,
+      categoria: cat,
+      ubicacion: categoria(cat).ubicacion,
+      // al pasar a enlatados/aseo se estima la fecha, salvo que ya se haya puesto una
+      estimar: categoria(cat).sinFecha && !f.vence ? true : f.estimar,
+    }))
 
   const venceSugerida = estimarVence(
     form.productoId ? { vidaUtilDias: form.vidaUtilDias } : null,
@@ -134,6 +163,27 @@ export default function Agregar() {
     )
   }
 
+  if (paso === 'pegar') {
+    return (
+      <div className="pagina">
+        <PegarLista productos={productos} onListo={() => ir('despensa')} onCancelar={() => setPaso('inicio')} />
+      </div>
+    )
+  }
+
+  if (paso === 'fecha') {
+    return (
+      <div className="pagina">
+        <EscanerFecha
+          titulo={form.nombre ? `Fecha de vencimiento de: ${form.nombre}` : 'Fecha de vencimiento'}
+          onFecha={alLeerFecha}
+          onSinFecha={sinFecha}
+          onCerrar={() => setPaso('formulario')}
+        />
+      </div>
+    )
+  }
+
   if (paso === 'buscando') {
     return (
       <div className="pagina centrado">
@@ -156,6 +206,9 @@ export default function Agregar() {
           </button>
           <button className="boton boton-grande boton-secundario" onClick={aMano}>
             <PenLine /> Escribir a mano
+          </button>
+          <button className="boton boton-grande boton-secundario" onClick={() => setPaso('pegar')}>
+            <ClipboardList /> Pegar una lista (WhatsApp, notas)
           </button>
           <label className="interruptor">
             <input type="checkbox" checked={continuo} onChange={(e) => setContinuo(e.target.checked)} />
@@ -243,6 +296,9 @@ export default function Agregar() {
           <legend>Fecha de vencimiento</legend>
           {!form.estimar && (
             <>
+              <button type="button" className="boton boton-secundario" onClick={() => setPaso('fecha')}>
+                <Camera size={20} /> {form.vence ? 'Volver a escanear la fecha' : 'Escanear la fecha con la cámara'}
+              </button>
               <input type="date" value={form.vence} min={sumarDias(hoyISO(), -30)} onChange={(e) => cambiar('vence', e.target.value)} />
               <div className="chips chips-pequenos">
                 {ATAJOS.map(([texto, dias]) => (
@@ -263,7 +319,16 @@ export default function Agregar() {
               </small>
             </span>
           </label>
-          {!form.estimar && form.vence && <p className="nota">{textoVence(form.vence)}</p>}
+          {!form.estimar && form.vence && (
+            <p className="nota">
+              {fechaLeida?.iso === form.vence && '📷 Leída con la cámara: '}
+              {textoVence(form.vence)}
+              {fechaLeida?.iso === form.vence && !fechaLeida.exacta &&
+                (fechaLeida.parcial
+                  ? ` ⚠️ No se leyó bien el día: se tomó el ${fechaCorta(form.vence)}. Revísalo.`
+                  : ` (la etiqueta solo trae mes y año: se tomó el ${fechaCorta(form.vence)})`)}
+            </p>
+          )}
         </fieldset>
 
         <label className="campo">

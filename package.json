@@ -9,7 +9,8 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "movil": "vite --mode movil",
-    "iconos": "node scripts/iconos.mjs"
+    "iconos": "node scripts/iconos.mjs",
+    "test": "node --test src/*.test.js"
   },
   "dependencies": {
     "barcode-detector": "^3.2.2",
@@ -17,7 +18,8 @@
     "dexie-react-hooks": "^4.4.0",
     "lucide-react": "^1.52.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.2.18",
