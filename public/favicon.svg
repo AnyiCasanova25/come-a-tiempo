@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#15803d"/>
+  <!-- frasco -->
+  <rect x="166" y="104" width="180" height="46" rx="14" fill="#bbf7d0"/>
+  <path d="M150 170h212a22 22 0 0 1 22 22v188a40 40 0 0 1-40 40H168a40 40 0 0 1-40-40V192a22 22 0 0 1 22-22z" fill="#ffffff"/>
+  <!-- etiqueta con check -->
+  <rect x="170" y="236" width="172" height="108" rx="18" fill="#dcfce7"/>
+  <path d="M212 290l30 30 60-62" fill="none" stroke="#15803d" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- reloj (vencimiento) -->
+  <circle cx="378" cy="384" r="70" fill="#f59e0b" stroke="#15803d" stroke-width="16"/>
+  <path d="M378 344v42l26 18" fill="none" stroke="#ffffff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
