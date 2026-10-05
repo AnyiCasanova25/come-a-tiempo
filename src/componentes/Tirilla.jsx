@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Camera, ImagePlus, X, Loader2, ScanText, Copy } from 'lucide-react'
 import { prepararFoto, leerTirilla, obtenerLectorTirilla } from '../ocr'
-import { interpretarTirilla } from '../leerTirilla'
+import { interpretarTirilla, totalDeTirilla } from '../leerTirilla'
 import { hoyISO } from '../fechas'
 import Revision from './Revision'
 import { avisar } from './Aviso'
@@ -14,6 +14,7 @@ export default function Tirilla({ productos, onListo, onCancelar }) {
   const [progreso, setProgreso] = useState({ foto: 0, de: 0, avance: 0 })
   const [texto, setTexto] = useState('')
   const [filas, setFilas] = useState(null)
+  const [totalTirilla, setTotalTirilla] = useState(null)
   const [error, setError] = useState(null)
   const camara = useRef(null)
   const galeria = useRef(null)
@@ -59,6 +60,7 @@ export default function Tirilla({ productos, onListo, onCancelar }) {
       const todo = partes.join('\n')
       setTexto(todo)
       setFilas(interpretarTirilla(todo, hoyISO(), productos))
+      setTotalTirilla(totalDeTirilla(todo))
       setEstado('revision')
     } catch (e) {
       setError(
@@ -94,6 +96,7 @@ export default function Tirilla({ productos, onListo, onCancelar }) {
           filas={filas}
           setFilas={setFilas}
           conPrecio
+          totalTirilla={totalTirilla}
           onVolver={() => setEstado('fotos')}
           onListo={onListo}
         />
@@ -119,10 +122,12 @@ export default function Tirilla({ productos, onListo, onCancelar }) {
     <div className="pila">
       <header className="encabezado">
         <h1>Foto de la tirilla</h1>
-        <p className="nota">
-          Estírala sobre una mesa, con buena luz y sin sombras, y tómale foto de frente.
-          Si es larga, toma varias fotos de arriba hacia abajo.
-        </p>
+        <ul className="consejos">
+          <li>Estírala sobre una mesa, con buena luz y sin sombras, y tómale foto de frente.</li>
+          <li><strong>Acércate:</strong> que la tirilla llene la foto de lado a lado (la letra debe verse grande).</li>
+          <li>Si es larga, toma <strong>varias fotos</strong> de arriba hacia abajo; no importa que se repita algún renglón.</li>
+          <li>Que se vea el <strong>TOTAL</strong>: así la app comprueba que no se saltó nada.</li>
+        </ul>
       </header>
 
       {estado === 'error' && <p className="nota alerta-texto">{error}</p>}

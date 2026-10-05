@@ -72,26 +72,36 @@ export function categoriaDesdeOFF(tags = []) {
 // Raíces sin tildes y en minúscula; gana la primera regla que coincida.
 // Una raíz que termina en espacio debe ser palabra completa ("pan " no atrapa "panela").
 const REGLAS_NOMBRE = [
-  // Primero lo que lleva queso pero es de panadería
+  // Primero lo que confunde a las reglas de abajo: aseo y droguería ("jabón de avena"
+  // no es cereal), arepas con queso, bebidas en lata y chocolate para tomar
+  ['aseo', ['jabon', 'shampoo', 'champu', 'desod', 'listerine', 'enjuague', 'maquina', 'cuchilla', 'espuma facial',
+    'gel de bano', 'gel bano', 'ambient', 'panitos', 'pani humedos', 'toallas', 'crema dental', 'cepillo dental',
+    'detergente', 'suavizante', 'cloro', 'papel higienico', 'servilleta', 'lavaloza', 'bls ecologica', 'bolsa ecologica']],
   ['pan', ['arepa', 'pandebono', 'almojabana', 'pan de queso']],
-  ['enlatados', ['atun', 'sardina', 'enlatad', 'lata', 'van camps', 'maiz tierno', 'arveja', 'almibar']],
-  ['congelados', ['empanada', 'congelad', 'nugget', 'helado', 'papa a la francesa']],
-  ['quesos', ['queso', 'cuajada', 'mozzarella', 'parmesano']],
-  ['embutidos', ['salchich', 'chorizo', 'jamon', 'mortadela', 'butifarra', 'tocineta', 'morcilla', 'longaniza', 'peperoni', 'pepperoni']],
-  ['lacteos', ['leche', 'yogur', 'yourt', 'yout', 'yurt', 'kumis', 'mantequilla', 'arequipe', 'alpinito', 'avena alpina']],
+  ['bebidas', ['gaseosa', 'coca cola', 'pony', 'malta', 'gatorlit', 'gatorade', 'suero', 'jugo', 'cerveza',
+    'chocolate instantaneo', 'chocolate corona', 'chocolate de mesa']],
+  ['enlatados', ['atun', 'sardina', 'enlatad', 'van camps', 'maiz', 'arveja', 'almibar']],
+  ['congelados', ['empanada', 'pastel', 'congelad', 'nugget', 'helado', 'papa a la francesa']],
+  ['quesos', ['queso', 'cuajada', 'mozzarella', 'mozarella', 'parmesano']],
+  ['embutidos', ['salchich', 'salch ', 'schon', 'cerveroni', 'chorizo', 'jamon', 'mortadela', 'butifarra', 'tocineta',
+    'morcilla', 'longaniza', 'peperoni', 'pepperoni']],
+  ['lacteos', ['leche', 'yogur', 'yourt', 'yout', 'yurt', 'kumis', 'mantequilla', 'margarina', 'esparcible',
+    'gustosita', 'arequipe', 'alpinito', 'avena alpina']],
   ['huevos', ['huevo']],
-  ['carnes', ['pollo', 'pechuga', 'carne', 'res ', 'cerdo', 'pescado', 'tilapia', 'costilla', 'molida', 'chuleta', 'mojarra']],
-  ['aceites', ['salsa', 'aceite', 'mayonesa', 'ketchup', 'mostaza', 'vinagre', 'bbq']],
-  ['pan', ['pan ', 'arepa', 'tortilla', 'tostada', 'calado', 'mogolla', 'croissant', 'pinguino', 'ponque', 'brownie']],
+  ['carnes', ['pollo', 'pechuga', 'carne', 'res ', 'cerdo', 'pescado', 'tilapia', 'costilla', 'cost ', 'molida',
+    'chuleta', 'mojarra']],
+  ['aceites', ['salsa', 'aceite', 'mayonesa', 'mayonez', 'ketchup', 'mostaza', 'vinagre', 'bbq']],
+  ['pan', ['pan ', 'tortilla', 'tostada', 'calado', 'mogolla', 'croissant', 'pinguino', 'ponque', 'brownie']],
   ['condimentos', ['sal ', 'azucar', 'panela', 'caldo', 'comino', 'oregano', 'pimienta', 'canela', 'triguisar', 'adobo']],
   ['granos', ['arroz', 'frijol', 'lenteja', 'garbanzo']],
   ['pastas', ['pasta', 'espagueti', 'spaghetti', 'macarron', 'harina', 'fideo']],
-  ['cereales', ['cereal', 'galleta', 'avena', 'granola', 'corn flakes', 'zucaritas']],
-  ['bebidas', ['jugo', 'gaseosa', 'coca', 'cafe ', 'agua ', 'refresco', 'cerveza', 'milo', 'chocolate de mesa']],
-  ['mecato', ['chocolate', 'chocolatina', 'papas ', 'dulce', 'gomita', 'mani ', 'bombon', 'chicle']],
-  ['frutas', ['banano', 'manzana', 'naranja', 'mandarina', 'mango', 'pina ', 'fresa', 'mora ', 'uva', 'papaya', 'guayaba', 'limon', 'aguacate', 'pera ', 'lulo', 'maracuya']],
-  ['verduras', ['tomate', 'cebolla', 'papa ', 'zanahoria', 'lechuga', 'pimenton', 'cilantro', 'ajo ', 'yuca', 'platano', 'repollo', 'brocoli', 'pepino', 'ahuyama']],
-  ['aseo', ['jabon', 'detergente', 'shampoo', 'champu', 'papel higienico', 'cloro', 'suavizante', 'crema dental', 'desodorante', 'lavaloza', 'servilleta']],
+  ['cereales', ['cereal', 'galleta', 'gall ', 'avena', 'granola', 'corn flakes', 'zucaritas', 'wafer']],
+  ['bebidas', ['coca', 'cafe ', 'agua ', 'refresco', 'milo']],
+  ['mecato', ['chocolate', 'chocolatina', 'papas ', 'pasab', 'detodito', 'dulce', 'gomita', 'mani ', 'bombon', 'chicle']],
+  ['frutas', ['banano', 'manzana', 'naranja', 'mandarina', 'mango', 'pina ', 'fresa', 'mora ', 'uva', 'papaya',
+    'guayaba', 'limon', 'aguacate', 'pera ', 'lulo', 'maracuya']],
+  ['verduras', ['tomate', 'cebolla', 'papa ', 'zanahoria', 'lechuga', 'pimenton', 'cilantro', 'ajo ', 'yuca', 'platano',
+    'repollo', 'brocoli', 'pepino', 'ahuyama']],
 ]
 
 export function adivinarCategoria(nombre) {

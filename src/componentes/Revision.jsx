@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { Check, ArrowLeft, Camera } from 'lucide-react'
 import { CATEGORIAS, categoria } from '../categorias'
 import { guardarProducto, agregarLote } from '../db'
-import { textoVence } from '../fechas'
+import { textoVence, pesos } from '../fechas'
 import EscanerFecha from './EscanerFecha'
 import { avisar } from './Aviso'
 
 // Revisión de varios productos antes de guardarlos (de una lista pegada o de una tirilla).
 // Cada fila: incluir, nombre, cantidad, [precio], categoría, fecha y 📷 para escanear la fecha.
-export default function Revision({ titulo, subtitulo, filas, setFilas, conPrecio, onVolver, onListo }) {
+export default function Revision({ titulo, subtitulo, filas, setFilas, conPrecio, totalTirilla, onVolver, onListo }) {
   const [guardando, setGuardando] = useState(false)
   const [escaneando, setEscaneando] = useState(null) // fila a la que se le escanea la fecha
 
@@ -67,12 +67,26 @@ export default function Revision({ titulo, subtitulo, filas, setFilas, conPrecio
   }
 
   const total = incluidas.reduce((s, f) => s + (Number(f.precio) || 0), 0)
+  // Comparación con el TOTAL impreso: si cuadra, el lector no se saltó ningún producto
+  const sumaLeida = filas.reduce((s, f) => s + (Number(f.precio) || 0), 0)
+  const diferencia = totalTirilla ? totalTirilla - sumaLeida : null
 
   return (
     <div className="pila">
       <header className="encabezado">
         <h1>{titulo}</h1>
         <p className="nota">{subtitulo}</p>
+        {diferencia !== null &&
+          (Math.abs(diferencia) <= 100 ? (
+            <p className="cuadre cuadre-ok">✅ Cuadra con el total de la tirilla ({pesos(totalTirilla)})</p>
+          ) : (
+            <p className="cuadre cuadre-mal">
+              ⚠️ La tirilla dice {pesos(totalTirilla)} y aquí suman {pesos(sumaLeida)}:{' '}
+              {diferencia > 0
+                ? `faltan ${pesos(diferencia)}. Puede que se haya saltado algún producto o un precio se leyó mal.`
+                : `sobran ${pesos(-diferencia)}. Revisa los precios.`}
+            </p>
+          ))}
       </header>
 
       <div className="revision">

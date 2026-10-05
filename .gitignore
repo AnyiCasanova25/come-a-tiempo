@@ -23,3 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 dev-dist
+
+# Fotos reales de prueba (traen datos personales): nunca se suben
+pruebas/

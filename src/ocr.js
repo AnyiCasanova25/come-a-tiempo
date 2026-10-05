@@ -174,16 +174,19 @@ export async function leerTirilla(canvas, onProgreso) {
  */
 export async function prepararFoto(archivo) {
   const bitmap = await createImageBitmap(archivo, { imageOrientation: 'from-image' })
-  // Lado largo máximo de 2200 px: en una foto normal de tirilla deja la letra de
-  // ~25-30 px de alto (lo que mejor lee Tesseract) sin volverlo lento
-  const escala = Math.min(1, 2200 / Math.max(bitmap.width, bitmap.height))
-  const w = Math.round(bitmap.width * escala)
-  const h = Math.round(bitmap.height * escala)
+  // Se recorta la tirilla (en una foto suele ocupar una franja angosta) y se lleva a
+  // ~1400 px de ancho: así la letra queda de 25-35 px, lo que mejor lee Tesseract.
+  // El alto se limita a 6000 px para que una tirilla larga no tarde demasiado.
+  const caja = encontrarTirilla(bitmap)
+  const escala = Math.min(4, 1400 / caja.w, 6000 / caja.h)
+  const w = Math.round(caja.w * escala)
+  const h = Math.round(caja.h * escala)
   const lienzo = document.createElement('canvas')
   lienzo.width = w
   lienzo.height = h
   const ctx = lienzo.getContext('2d', { willReadFrequently: true })
-  ctx.drawImage(bitmap, 0, 0, w, h)
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(bitmap, caja.x, caja.y, caja.w, caja.h, 0, 0, w, h)
   bitmap.close?.()
 
   const img = ctx.getImageData(0, 0, w, h)
@@ -218,4 +221,99 @@ export async function prepararFoto(archivo) {
   }
   ctx.putImageData(img, 0, 0)
   return lienzo
+}
+
+/**
+ * Busca la tirilla dentro de la foto: el papel térmico es claro y NEUTRO (casi sin
+ * color), mientras que mesas, sábanas o manteles suelen tener algún tono. Se marca
+ * qué puntos parecen papel en una copia pequeña de la foto, se buscan las columnas
+ * y filas con mucho papel y se devuelve ese rectángulo (con margen) en la foto real.
+ * Si no encuentra algo claro, devuelve la foto completa.
+ */
+export function encontrarTirilla(bitmap) {
+  const completa = { x: 0, y: 0, w: bitmap.width, h: bitmap.height }
+  const W = 240
+  const H = Math.round((bitmap.height / bitmap.width) * W)
+  const c = document.createElement('canvas')
+  c.width = W
+  c.height = H
+  const ctx = c.getContext('2d', { willReadFrequently: true })
+  ctx.drawImage(bitmap, 0, 0, W, H)
+  const d = ctx.getImageData(0, 0, W, H).data
+
+  // Papel: claro (respecto a lo más claro de la foto) y casi sin saturación
+  const brillo = new Float32Array(W * H)
+  let maximo = 0
+  for (let i = 0, j = 0; i < d.length; i += 4, j++) {
+    brillo[j] = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]
+    if (brillo[j] > maximo) maximo = brillo[j]
+  }
+  const papel = new Uint8Array(W * H)
+  for (let i = 0, j = 0; i < d.length; i += 4, j++) {
+    const mx = Math.max(d[i], d[i + 1], d[i + 2])
+    const mn = Math.min(d[i], d[i + 1], d[i + 2])
+    // (brillo desde el 55 % del máximo: el papel en sombra también cuenta)
+    papel[j] = brillo[j] > maximo * 0.55 && (mx - mn) / Math.max(1, mx) < 0.05 ? 1 : 0
+  }
+
+  // Columnas con mucho papel → franja horizontal de la tirilla
+  const rango = (perfil, umbral) => {
+    // el tramo continuo más largo por encima del umbral
+    let mejor = null
+    let inicio = -1
+    for (let k = 0; k <= perfil.length; k++) {
+      if (k < perfil.length && perfil[k] >= umbral) {
+        if (inicio < 0) inicio = k
+      } else if (inicio >= 0) {
+        if (!mejor || k - inicio > mejor[1] - mejor[0]) mejor = [inicio, k]
+        inicio = -1
+      }
+    }
+    return mejor
+  }
+  const porColumna = new Float32Array(W)
+  for (let x = 0; x < W; x++) {
+    let s = 0
+    for (let y = 0; y < H; y++) s += papel[y * W + x]
+    porColumna[x] = s / H
+  }
+  const maxCol = Math.max(...porColumna)
+  if (maxCol < 0.2) return completa
+  const cols = rango(porColumna, maxCol * 0.45)
+  // Las columnas con mucho texto (los precios a la derecha) tienen menos "papel":
+  // desde el centro se amplía hacia los lados mientras siga habiendo algo de papel
+  while (cols[0] > 0 && porColumna[cols[0] - 1] >= maxCol * 0.12) cols[0]--
+  while (cols[1] < W && porColumna[cols[1]] >= maxCol * 0.12) cols[1]++
+  const porFila = new Float32Array(H)
+  for (let y = 0; y < H; y++) {
+    let s = 0
+    for (let x = cols[0]; x < cols[1]; x++) s += papel[y * W + x]
+    porFila[y] = s / (cols[1] - cols[0])
+  }
+  // Se suaviza el perfil de filas (una mano o una sombra corta el papel un momento)
+  const suave = porFila.map((_, y) => {
+    let s = 0
+    let n = 0
+    for (let k = Math.max(0, y - 6); k <= Math.min(H - 1, y + 6); k++, n++) s += porFila[k]
+    return s / n
+  })
+  const filas = rango(suave, 0.15)
+  if (!filas) return completa
+
+  // Margen del 4 % y vuelta a coordenadas de la foto real
+  const mx = Math.round((cols[1] - cols[0]) * 0.08) + 1
+  const my = Math.round((filas[1] - filas[0]) * 0.01) + 1
+  const x0 = Math.max(0, cols[0] - mx)
+  const x1 = Math.min(W, cols[1] + mx)
+  const y0 = Math.max(0, filas[0] - my)
+  const y1 = Math.min(H, filas[1] + my)
+  const caja = {
+    x: Math.round((x0 / W) * bitmap.width),
+    y: Math.round((y0 / H) * bitmap.height),
+    w: Math.round(((x1 - x0) / W) * bitmap.width),
+    h: Math.round(((y1 - y0) / H) * bitmap.height),
+  }
+  // Recortes absurdos (casi nada o casi todo) → foto completa
+  const area = (caja.w * caja.h) / (bitmap.width * bitmap.height)
+  return area < 0.03 || area > 0.92 ? completa : caja
 }
