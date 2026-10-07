@@ -1,5 +1,6 @@
 import { adivinarCategoria, categoria } from './categorias.js'
 import { sumarDias } from './fechas.js'
+import { detectarPorPaquete } from './unidades.js'
 
 // Convierte el texto que lee el OCR de una tirilla de supermercado en productos.
 //
@@ -173,7 +174,9 @@ export function interpretarTirilla(texto, hoy, conocidos = []) {
       const leida = Math.max(1, Math.round(kilos) || 1)
       const { cantidad, precio, alterno } = cuadrarSiesa(leida, kilos, porPeso, aNumero(siesa[3]), aNumero(siesa[4]))
       if (pendiente) {
-        items.push({ nombre: pendiente.nombre, lider: pendiente.lider, cantidad, cantidadFija: true, precio, alterno })
+        // Unidades por paquete: del nombre ("BONYURT*6und") o de la unidad "sixp" (six pack)
+        const porPaquete = detectarPorPaquete(pendiente.nombre) ?? (/^SIX/.test(siesa[2]) ? 6 : null)
+        items.push({ nombre: pendiente.nombre, lider: pendiente.lider, cantidad, cantidadFija: true, precio, alterno, porPaquete })
         pendiente = null
       }
       continue
@@ -201,7 +204,7 @@ export function interpretarTirilla(texto, hoy, conocidos = []) {
       const total = resto.match(PRECIO_FINAL)
       const precio = total ? valor(total) : Math.round(aCantidad(cant[1]) * aNumero(cant[3]))
       if (pendiente) {
-        items.push({ nombre: pendiente.nombre, lider: pendiente.lider, cantidad, cantidadFija: true, precio })
+        items.push({ nombre: pendiente.nombre, lider: pendiente.lider, cantidad, cantidadFija: true, precio, porPaquete: detectarPorPaquete(pendiente.nombre) })
         pendiente = null
       } else if (items.length) {
         const anterior = items.at(-1)
@@ -237,7 +240,7 @@ export function interpretarTirilla(texto, hoy, conocidos = []) {
     }
     pendiente = null
     if (precio[1]) continue // precio negativo suelto: no es un producto
-    items.push({ nombre: resto, lider, cantidad: cantidad ?? 1, cantidadFija: cantidad !== null, precio: valor(precio) })
+    items.push({ nombre: resto, lider, cantidad: cantidad ?? 1, cantidadFija: cantidad !== null, precio: valor(precio), porPaquete: detectarPorPaquete(resto) })
   }
 
   // Varias fotos de una tirilla larga se traslapan: el mismo renglón (mismo número y
@@ -298,6 +301,7 @@ export function interpretarTirilla(texto, hoy, conocidos = []) {
         (categoria(cat).sinFecha ? 'Dura años: fecha estimada' : 'Fecha estimada: escanéala con 📷'),
       advertencia: dudoso(i),
       cantidad: i.cantidad,
+      porPaquete: i.porPaquete ?? conocido?.porPaquete ?? 1,
       precio: i.precio ?? null,
       incluir: true,
     })

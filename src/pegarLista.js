@@ -1,6 +1,7 @@
 import { separarRenglon } from './leerFecha.js'
 import { adivinarCategoria, categoria } from './categorias.js'
 import { sumarDias } from './fechas.js'
+import { detectarPorPaquete } from './unidades.js'
 
 // Convierte una lista escrita a mano (WhatsApp, notas…) en productos con fecha.
 // Un producto por renglón; la fecha puede ir en casi cualquier formato:
@@ -61,6 +62,7 @@ export function interpretarLista(texto, hoy, conocidos = []) {
       aviso,
       advertencia: fechaInvalida,
       cantidad: 1,
+      porPaquete: detectarPorPaquete(renglon) ?? conocido?.porPaquete ?? 1,
       incluir: true,
     })
   }

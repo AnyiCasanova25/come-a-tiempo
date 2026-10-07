@@ -86,7 +86,7 @@ export default function Ajustes() {
         </div>
       </section>
 
-      <p className="nota pie">Come a tiempo con SyA · versión 0.1 (fase 1)</p>
+      <p className="nota pie">Come a tiempo con SyA · versión 0.3</p>
     </div>
   )
 }

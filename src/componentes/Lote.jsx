@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { MinusCircle, PackageCheck, Trash2, CalendarDays, Eraser } from 'lucide-react'
+import { MinusCircle, PackageCheck, Trash2, CalendarDays, Eraser, Boxes } from 'lucide-react'
 import Hoja from './Hoja'
 import { categoria } from '../categorias'
 import { nivel, textoVence, fechaCorta } from '../fechas'
-import { consumir, seAcabo, botar, eliminarLote, cambiarVence } from '../db'
+import { consumir, seAcabo, botar, eliminarLote, cambiarVence, cambiarPorPaquete } from '../db'
+import { textoCantidad } from '../unidades'
 import { avisar } from './Aviso'
 
 export function FilaLote({ lote, diasAviso, onAbrir }) {
@@ -15,7 +16,7 @@ export function FilaLote({ lote, diasAviso, onAbrir }) {
       <span className="lote-info">
         <span className="lote-nombre">{lote.producto?.nombre ?? 'Producto'}</span>
         <span className="lote-detalle">
-          {lote.cantidad} {lote.cantidad === 1 ? 'unidad' : 'unidades'}
+          {textoCantidad(lote)}
           {lote.venceEstimada && ' · fecha estimada'}
         </span>
       </span>
@@ -24,10 +25,14 @@ export function FilaLote({ lote, diasAviso, onAbrir }) {
   )
 }
 
-// Acciones sobre un lote: usar, se acabó, botar, corregir fecha, eliminar
+// Acciones sobre un lote: descontar lo que se usó, se acabó, botar, unidades del paquete,
+// corregir fecha, eliminar
 export function AccionesLote({ lote, onCerrar }) {
-  const [editando, setEditando] = useState(false)
+  // modo: acciones | fecha | unidades
+  const [modo, setModo] = useState('acciones')
   const [fecha, setFecha] = useState(lote?.vence ?? '')
+  const [usadas, setUsadas] = useState(1)
+  const [porPaquete, setPorPaquete] = useState(lote?.porPaquete > 1 ? lote.porPaquete : '')
 
   if (!lote) return null
   const nombre = lote.producto?.nombre ?? 'Producto'
@@ -36,41 +41,94 @@ export function AccionesLote({ lote, onCerrar }) {
     avisar(mensaje)
     onCerrar()
   }
+  const quedan = +(lote.cantidad - usadas).toFixed(2)
+  const paquetes = lote.cantidadInicial / (lote.porPaquete ?? 1)
 
   return (
     <Hoja abierta onCerrar={onCerrar} titulo={nombre}>
       <p className="hoja-sub">
-        {lote.cantidad} {lote.cantidad === 1 ? 'unidad' : 'unidades'} · {textoVence(lote.vence)}
+        {textoCantidad(lote)} · {textoVence(lote.vence)}
         {lote.venceEstimada ? ' (estimada)' : ''} · comprado el {fechaCorta(lote.compradoEl)}
       </p>
-      {editando ? (
+
+      {modo === 'fecha' && (
         <div className="pila">
           <label className="campo">
             <span>Fecha de vencimiento</span>
             <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
           </label>
-          <button
-            className="boton"
-            disabled={!fecha}
-            onClick={hacer(() => cambiarVence(lote.id, fecha), 'Fecha actualizada')}
-          >
+          <button className="boton" disabled={!fecha} onClick={hacer(() => cambiarVence(lote.id, fecha), 'Fecha actualizada')}>
             Guardar fecha
           </button>
         </div>
-      ) : (
+      )}
+
+      {modo === 'unidades' && (
+        <div className="pila">
+          <label className="campo">
+            <span>¿Cuántas unidades trae cada paquete?</span>
+            <input
+              type="number"
+              min="1"
+              inputMode="numeric"
+              placeholder="Ej: 25"
+              value={porPaquete}
+              onChange={(e) => setPorPaquete(e.target.value)}
+              autoFocus
+            />
+          </label>
+          {Number(porPaquete) > 0 && (
+            <p className="nota">
+              Quedarán {+((lote.cantidad / (lote.porPaquete ?? 1)) * Number(porPaquete)).toFixed(2)} unidades
+              {paquetes !== 1 && ` (${paquetes} paquetes)`}. La próxima vez que compres este producto lo recordará.
+            </p>
+          )}
+          <button
+            className="boton"
+            disabled={!(Number(porPaquete) >= 1)}
+            onClick={hacer(() => cambiarPorPaquete(lote.id, porPaquete), `${nombre}: paquete de ${porPaquete}`)}
+          >
+            Guardar
+          </button>
+        </div>
+      )}
+
+      {modo === 'acciones' && (
         <div className="acciones">
           {lote.cantidad > 1 && (
-            <button className="accion" onClick={hacer(() => consumir(lote.id, 1), `Usaste 1 · quedan ${lote.cantidad - 1}`)}>
-              <MinusCircle /> Usé 1
-            </button>
+            <div className="gasto-rapido">
+              <span>¿Cuántas usaron?</span>
+              <div className="contador-campo">
+                <button type="button" onClick={() => setUsadas((n) => Math.max(1, n - 1))} aria-label="Menos">−</button>
+                <input
+                  type="number"
+                  min="1"
+                  inputMode="numeric"
+                  value={usadas}
+                  onChange={(e) => setUsadas(Math.max(1, Math.min(lote.cantidad, Number(e.target.value) || 1)))}
+                  aria-label="Unidades usadas"
+                />
+                <button type="button" onClick={() => setUsadas((n) => Math.min(lote.cantidad, n + 1))} aria-label="Más">+</button>
+              </div>
+              <button
+                className="boton"
+                onClick={hacer(() => consumir(lote.id, usadas), quedan > 0 ? `Quedan ${quedan}` : `${nombre}: se acabó`)}
+              >
+                <MinusCircle size={18} /> Descontar · quedan {Math.max(0, quedan)}
+              </button>
+            </div>
           )}
           <button className="accion" onClick={hacer(() => seAcabo(lote.id), `${nombre}: se acabó`)}>
             <PackageCheck /> Se acabó
           </button>
           <button className="accion accion-peligro" onClick={hacer(() => botar(lote.id), `${nombre}: botado`)}>
-            <Trash2 /> Lo boté (vencido)
+            <Trash2 /> Lo boté (vencido o dañado)
           </button>
-          <button className="accion" onClick={() => setEditando(true)}>
+          <button className="accion" onClick={() => setModo('unidades')}>
+            <Boxes />
+            {lote.porPaquete > 1 ? `Paquete de ${lote.porPaquete} unidades (cambiar)` : 'El paquete trae varias unidades'}
+          </button>
+          <button className="accion" onClick={() => setModo('fecha')}>
             <CalendarDays /> {lote.venceEstimada ? 'Poner la fecha real' : 'Cambiar fecha'}
           </button>
           <button className="accion accion-suave" onClick={hacer(() => eliminarLote(lote.id), 'Registro eliminado')}>

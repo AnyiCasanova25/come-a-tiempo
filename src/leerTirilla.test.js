@@ -260,3 +260,14 @@ TOTAL                  45.390`
   ])
   assert.equal(totalDeTirilla(foto1 + '\n' + foto2), 45390)
 })
+
+test('unidades por paquete desde la tirilla de Surtiplaza', () => {
+  const filas = interpretarTirilla(SURTIPLAZA, HOY)
+  const por = (inicio) => filas.find((f) => f.nombre.startsWith(inicio)).porPaquete
+  assert.equal(por('Bonyurt 6und'), 6)
+  assert.equal(por('Pony malta'), 6) // "1.000 sixp"
+  assert.equal(por('Atun seletti'), 3)
+  assert.equal(por('Chorizo las brisas'), 5)
+  assert.equal(por('Pan perro'), 6)
+  assert.equal(por('Salsa barbq'), 1) // 1000 GR es peso, no unidades
+})

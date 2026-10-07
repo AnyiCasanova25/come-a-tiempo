@@ -352,3 +352,21 @@ input:focus-visible, select:focus-visible, button:focus-visible {
 .cuadre { font-size: 0.9rem; padding: 10px 12px; border-radius: 10px; margin-top: 6px; }
 .cuadre-ok { background: var(--verde-fondo); color: var(--verde); }
 .cuadre-mal { background: var(--amarillo-fondo); color: var(--amarillo); }
+.unidades-fila { align-items: center; gap: 8px; font-size: 0.9rem; color: var(--texto-suave); }
+.unidades-fila input.revision-cantidad { width: 64px; flex: none; text-align: center; }
+
+/* ---------- Descontar unidades ---------- */
+.gasto-rapido {
+  display: flex; flex-direction: column; gap: 10px; padding: 12px;
+  background: var(--primario-suave); border-radius: 12px;
+}
+.gasto-rapido > span { font-weight: 600; }
+.gasto-rapido .contador-campo { height: 48px; }
+
+/* ---------- ¿Qué gastaron? ---------- */
+.boton-gasto { width: 100%; }
+.consejo-microfono { display: flex; align-items: center; gap: 6px; }
+.gasto-encabezado { justify-content: space-between; align-items: center; }
+.gasto-texto { font-style: italic; color: var(--texto-suave); font-size: 0.9rem; }
+.unidades-fila input.gasto-fecha { width: 150px; flex: none; }
+.revision-fila.sin-producto { border-color: var(--amarillo); }

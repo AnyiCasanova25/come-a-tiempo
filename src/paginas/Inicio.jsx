@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ScanBarcode } from 'lucide-react'
+import { ScanBarcode, Utensils } from 'lucide-react'
 import { useLotesActivos, useAjuste, usePerdidasMes, DIAS_AVISO_DEFECTO } from '../consultas'
 import { diasParaVencer, pesos } from '../fechas'
 import { FilaLote, AccionesLote } from '../componentes/Lote'
@@ -40,6 +40,10 @@ export default function Inicio({ ir }) {
         </div>
       ) : (
         <>
+          <button className="boton boton-grande boton-gasto" onClick={() => ir('gastos')}>
+            <Utensils /> ¿Qué gastaron hoy?
+          </button>
+
           <section className="tarjetas">
             <div className="tarjeta tarjeta-vencido">
               <strong>{vencidos}</strong>

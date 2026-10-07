@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Home, Refrigerator, ScanBarcode, ShoppingCart, Settings } from 'lucide-react'
+import { Home, Refrigerator, ScanBarcode, ShoppingCart, Settings, Utensils } from 'lucide-react'
 import Inicio from './paginas/Inicio'
 import Inventario from './paginas/Inventario'
 import Agregar from './paginas/Agregar'
 import Lista from './paginas/Lista'
 import Ajustes from './paginas/Ajustes'
+import Gastos from './paginas/Gastos'
 import Aviso from './componentes/Aviso'
 import { revisarYAvisar } from './notificaciones'
 
@@ -14,6 +15,8 @@ const PAGINAS = {
   agregar: { componente: Agregar, nombre: 'Agregar', icono: ScanBarcode },
   lista: { componente: Lista, nombre: 'Lista', icono: ShoppingCart },
   ajustes: { componente: Ajustes, nombre: 'Ajustes', icono: Settings },
+  // Se abre desde Inicio y En casa (no va en la barra de abajo)
+  gastos: { componente: Gastos, nombre: 'Gastos', icono: Utensils, oculta: true },
 }
 
 const desdeHash = () => {
@@ -51,7 +54,7 @@ export default function App() {
         <Pagina key={pagina} ir={ir} />
       </main>
       <nav className="barra">
-        {Object.entries(PAGINAS).map(([id, { nombre, icono: Icono }]) => (
+        {Object.entries(PAGINAS).filter(([, p]) => !p.oculta).map(([id, { nombre, icono: Icono }]) => (
           <button
             key={id}
             className={`barra-boton ${id === 'agregar' ? 'barra-principal' : ''} ${pagina === id ? 'activo' : ''}`}

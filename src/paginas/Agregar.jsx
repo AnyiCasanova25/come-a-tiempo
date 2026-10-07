@@ -10,6 +10,7 @@ import { CATEGORIAS, UBICACIONES, categoria } from '../categorias'
 import { useProductos } from '../consultas'
 import { buscarPorCodigo, guardarProducto, agregarLote, estimarVence } from '../db'
 import { buscarEnOFF } from '../openfoodfacts'
+import { detectarPorPaquete } from '../unidades'
 import { hoyISO, sumarDias, textoVence, fechaCorta } from '../fechas'
 
 const ATAJOS = [
@@ -33,6 +34,8 @@ function formularioVacio(base = {}) {
     vidaUtilDias: base.vidaUtilDias,
     categoria: cat,
     cantidad: 1,
+    // Unidades que trae cada paquete: las que recuerda el producto o las del nombre ("x30", "6und")
+    porPaquete: base.porPaquete ?? detectarPorPaquete(base.nombre) ?? 1,
     ubicacion: categoria(cat).ubicacion,
     vence: '',
     // Enlatados y aseo duran años: por defecto no se les pide la fecha
@@ -104,7 +107,12 @@ export default function Agregar({ ir }) {
       }))
     } else {
       // Si venía de un producto elegido por nombre (sin código), deja de estar enlazado
-      setForm((f) => (f.codigo ? { ...f, nombre } : { ...f, nombre, productoId: null, vidaUtilDias: undefined }))
+      setForm((f) => {
+        const nuevo = f.codigo ? { ...f, nombre } : { ...f, nombre, productoId: null, vidaUtilDias: undefined }
+        // "Huevos x30" → 30 unidades por paquete, si no se había puesto otra cosa
+        const detectado = detectarPorPaquete(nombre)
+        return detectado && (f.porPaquete ?? 1) === 1 ? { ...nuevo, porPaquete: detectado } : nuevo
+      })
     }
   }
 
@@ -140,6 +148,7 @@ export default function Agregar({ ir }) {
       await agregarLote({
         producto,
         cantidad: form.cantidad,
+        porPaquete: form.porPaquete,
         vence: venceFinal,
         venceEstimada: form.estimar,
         precio: form.precio,
@@ -273,7 +282,7 @@ export default function Agregar({ ir }) {
             </select>
           </label>
           <label className="campo cantidad">
-            <span>Cantidad</span>
+            <span>Paquetes</span>
             <div className="contador-campo">
               <button type="button" onClick={() => cambiar('cantidad', Math.max(1, Number(form.cantidad) - 1))}>−</button>
               <input
@@ -287,6 +296,25 @@ export default function Agregar({ ir }) {
             </div>
           </label>
         </div>
+
+        <label className="campo">
+          <span>¿Cuántas unidades trae cada paquete?</span>
+          <div className="fila unidades-fila">
+            <input
+              className="revision-cantidad"
+              type="number"
+              min="1"
+              inputMode="numeric"
+              value={form.porPaquete}
+              onChange={(e) => cambiar('porPaquete', Math.max(1, Number(e.target.value) || 1))}
+            />
+            <span>
+              {Number(form.porPaquete) > 1
+                ? `En la casa quedarán ${Number(form.cantidad) * Number(form.porPaquete)} unidades para ir descontando`
+                : 'Déjalo en 1 si es una sola cosa (un pan, una mantequilla)'}
+            </span>
+          </div>
+        </label>
 
         <div className="campo">
           <span>¿Dónde lo guardas?</span>

@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { Search } from 'lucide-react'
+import { Search, Utensils } from 'lucide-react'
 import { useLotesActivos, useAjuste, DIAS_AVISO_DEFECTO } from '../consultas'
 import { CATEGORIAS, UBICACIONES, categoria } from '../categorias'
 import { FilaLote, AccionesLote } from '../componentes/Lote'
 
 const sinTildes = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
-export default function Inventario() {
+export default function Inventario({ ir }) {
   const lotes = useLotesActivos()
   const diasAviso = useAjuste('diasAviso', DIAS_AVISO_DEFECTO)
   const [buscar, setBuscar] = useState('')
@@ -28,8 +28,11 @@ export default function Inventario() {
 
   return (
     <div className="pagina">
-      <header className="encabezado">
+      <header className="encabezado encabezado-fila">
         <h1>En la casa</h1>
+        <button className="boton boton-secundario" onClick={() => ir('gastos')}>
+          <Utensils size={18} /> Gastos
+        </button>
       </header>
 
       <label className="buscador">

@@ -29,6 +29,7 @@ export default function Revision({ titulo, subtitulo, filas, setFilas, conPrecio
         aviso: 'Escribe el nombre, el precio y la fecha',
         advertencia: false,
         cantidad: 1,
+        porPaquete: 1,
         precio: null,
         incluir: true,
       },
@@ -55,6 +56,7 @@ export default function Revision({ titulo, subtitulo, filas, setFilas, conPrecio
         await agregarLote({
           producto,
           cantidad: f.cantidad,
+          porPaquete: f.porPaquete ?? 1,
           vence: f.vence,
           venceEstimada: f.estimada,
           precio: f.precio || null,
@@ -125,6 +127,9 @@ export default function Revision({ titulo, subtitulo, filas, setFilas, conPrecio
                 onChange={(e) => cambiar(f.clave, { nombre: e.target.value })}
                 aria-label="Producto"
               />
+            </div>
+            {/* "1 paquete de 25 unidades": el stock queda en unidades para irlas descontando */}
+            <div className="fila unidades-fila">
               <input
                 className="revision-cantidad"
                 type="number"
@@ -132,8 +137,19 @@ export default function Revision({ titulo, subtitulo, filas, setFilas, conPrecio
                 inputMode="numeric"
                 value={f.cantidad}
                 onChange={(e) => cambiar(f.clave, { cantidad: Math.max(1, Number(e.target.value) || 1) })}
-                aria-label="Cantidad"
+                aria-label="Paquetes"
               />
+              <span>{f.cantidad === 1 ? 'paquete' : 'paquetes'} de</span>
+              <input
+                className="revision-cantidad"
+                type="number"
+                min="1"
+                inputMode="numeric"
+                value={f.porPaquete ?? 1}
+                onChange={(e) => cambiar(f.clave, { porPaquete: Math.max(1, Number(e.target.value) || 1) })}
+                aria-label="Unidades por paquete"
+              />
+              <span>{(f.porPaquete ?? 1) === 1 ? 'unidad' : 'unidades'}</span>
             </div>
             <div className="fila">
               <select

@@ -61,13 +61,18 @@ export async function guardarProducto(datos) {
 
 // ---------- Lotes (cada compra de un producto con su fecha de vencimiento) ----------
 
-export async function agregarLote({ producto, cantidad, vence, venceEstimada, precio, ubicacion }) {
+// cantidad = paquetes comprados; porPaquete = unidades que trae cada uno.
+// El lote guarda UNIDADES: 1 paquete de 25 lonchas → 25, y de ahí se van descontando.
+export async function agregarLote({ producto, cantidad, porPaquete = 1, vence, venceEstimada, precio, ubicacion }) {
   const compradoEl = hoyISO()
+  const por = Math.max(1, Math.round(Number(porPaquete) || 1))
+  const unidades = Number(cantidad) * por
   const lote = {
     id: nuevoId(),
     productoId: producto.id,
-    cantidad: Number(cantidad),
-    cantidadInicial: Number(cantidad),
+    cantidad: unidades,
+    cantidadInicial: unidades,
+    porPaquete: por,
     vence,
     venceEstimada: !!venceEstimada,
     precio: precio ? Number(precio) : null,
@@ -79,6 +84,10 @@ export async function agregarLote({ producto, cantidad, vence, venceEstimada, pr
   await db.transaction('rw', db.lotes, db.movimientos, db.productos, db.lista, async () => {
     await db.lotes.add(lote)
     await registrarMovimiento(lote, 'compra', lote.cantidad)
+    // El producto recuerda cuántas unidades trae su paquete, para la próxima compra
+    if (por > 1 && producto.porPaquete !== por) {
+      await db.productos.update(producto.id, { porPaquete: por, actualizado: ahora() })
+    }
     // Si la fecha es real, el producto "aprende" cuánto le dura (para estimar la próxima vez)
     if (!venceEstimada) {
       const dias = diasEntre(compradoEl, vence)
@@ -93,7 +102,8 @@ export async function agregarLote({ producto, cantidad, vence, venceEstimada, pr
   return lote
 }
 
-function registrarMovimiento(lote, tipo, cantidad) {
+// fecha: 'AAAA-MM-DD' si el gasto fue otro día (p. ej. al pasar una lista de WhatsApp)
+function registrarMovimiento(lote, tipo, cantidad, fecha = null) {
   return db.movimientos.add({
     id: nuevoId(),
     productoId: lote.productoId,
@@ -102,8 +112,21 @@ function registrarMovimiento(lote, tipo, cantidad) {
     cantidad,
     // valor proporcional del lote, para medir la plata perdida en vencidos
     valor: lote.precio ? (lote.precio * cantidad) / lote.cantidadInicial : null,
-    fecha: ahora(),
+    fecha: fecha && fecha !== hoyISO() ? `${fecha}T12:00:00.000Z` : ahora(),
   })
+}
+
+// Descuenta unidades de un lote (gasto o pérdida); si llega a 0 queda agotado/botado
+async function descontarLote(lote, cantidad, tipo, fecha) {
+  const usado = Math.min(cantidad, lote.cantidad)
+  const restante = +(lote.cantidad - usado).toFixed(2)
+  await db.lotes.update(lote.id, {
+    cantidad: restante,
+    estado: restante > 0 ? 'activo' : tipo === 'botado' ? 'botado' : 'agotado',
+    actualizado: ahora(),
+  })
+  await registrarMovimiento(lote, tipo, usado, fecha)
+  return usado
 }
 
 // "Usé N": descuenta del lote; si llega a 0 queda agotado
@@ -111,14 +134,48 @@ export async function consumir(loteId, cantidad = 1) {
   await db.transaction('rw', db.lotes, db.movimientos, async () => {
     const lote = await db.lotes.get(loteId)
     if (!lote || lote.estado !== 'activo') return
-    const usado = Math.min(cantidad, lote.cantidad)
-    const restante = +(lote.cantidad - usado).toFixed(2)
+    await descontarLote(lote, cantidad, 'consumo')
+  })
+}
+
+/**
+ * Descuenta N unidades de un producto, empezando por el lote que vence primero
+ * (lo primero que se debe gastar). tipo: 'consumo' o 'botado'.
+ * @returns {Promise<{ descontado: number, faltaron: number }>}
+ */
+export async function descontarProducto(productoId, cantidad, { tipo = 'consumo', fecha = null } = {}) {
+  let falta = cantidad
+  await db.transaction('rw', db.lotes, db.movimientos, async () => {
+    const lotes = await db.lotes
+      .where('productoId').equals(productoId)
+      .filter((l) => l.estado === 'activo')
+      .toArray()
+    lotes.sort((a, b) => a.vence.localeCompare(b.vence))
+    for (const lote of lotes) {
+      if (falta <= 0) break
+      falta -= await descontarLote(lote, falta, tipo, fecha)
+    }
+  })
+  return { descontado: cantidad - Math.max(0, falta), faltaron: Math.max(0, +falta.toFixed(2)) }
+}
+
+/**
+ * "Este paquete trae N unidades": convierte un lote registrado por paquetes a unidades
+ * (1 paquete → 25 lonchas) y el producto lo recuerda para la próxima compra.
+ */
+export async function cambiarPorPaquete(loteId, porPaquete) {
+  const por = Math.max(1, Math.round(Number(porPaquete) || 1))
+  await db.transaction('rw', db.lotes, db.productos, async () => {
+    const lote = await db.lotes.get(loteId)
+    if (!lote) return
+    const factor = por / (lote.porPaquete ?? 1)
     await db.lotes.update(loteId, {
-      cantidad: restante,
-      estado: restante <= 0 ? 'agotado' : 'activo',
+      cantidad: +(lote.cantidad * factor).toFixed(2),
+      cantidadInicial: +(lote.cantidadInicial * factor).toFixed(2),
+      porPaquete: por,
       actualizado: ahora(),
     })
-    await registrarMovimiento(lote, 'consumo', usado)
+    await db.productos.update(lote.productoId, { porPaquete: por, actualizado: ahora() })
   })
 }
 
