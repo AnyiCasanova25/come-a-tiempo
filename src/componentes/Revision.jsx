@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Check, ArrowLeft, Camera, Plus, RefreshCw } from 'lucide-react'
 import { CATEGORIAS, categoria } from '../categorias'
-import { guardarProducto, agregarLote, ajustarPorPaquete, descontarProducto } from '../db'
+import { guardarProducto, agregarLote, ajustarProducto, descontarProducto } from '../db'
 import { textoVence, pesos, hoyISO, sumarDias } from '../fechas'
 import EscanerFecha from './EscanerFecha'
 import { avisar } from './Aviso'
@@ -57,8 +57,10 @@ export default function Revision({ titulo, subtitulo, filas, setFilas, conPrecio
       const creados = new Map() // mismo nombre en varias filas → un solo producto
       for (const f of incluidas) {
         if (esAjuste(f)) {
-          if (f.porPaquete) for (const id of f.objetivos) await ajustarPorPaquete(id, f.porPaquete)
-          if (f.gastados > 0) await descontarProducto(f.objetivos[0], f.gastados)
+          for (const [i, id] of f.objetivos.entries()) {
+            // lo gastado se le cuenta al primero ("empanadas" → los dos paquetes, gasto al primero)
+            await ajustarProducto(id, { porPaquete: f.porPaquete, gastados: i === 0 ? f.gastados : 0, vence: f.vence })
+          }
           continue
         }
         const llave = f.nombre.trim().toLowerCase()
@@ -272,12 +274,15 @@ export default function Revision({ titulo, subtitulo, filas, setFilas, conPrecio
 // Ajuste de algo que ya está en la casa: "Queso en lonchas: paquete de 25, gastadas 5 → quedan 20"
 function FilaAjuste({ fila: f, enCasa, cambiar }) {
   const productos = f.objetivos.map((id) => enCasa.find((p) => p.id === id)).filter(Boolean)
-  // Cómo queda: las unidades actuales se pasan al nuevo tamaño de paquete y se resta lo gastado
+  // Cómo queda: las unidades se pasan al nuevo tamaño de paquete y "ya gastamos N" deja
+  // lo comprado menos N (si ya había menos, no se toca: no se descuenta dos veces)
   const resultado = productos.map((p, i) => {
-    const por = f.porPaquete || p.porPaquete || 1
-    const unidades = +((p.stock / (p.porPaquete || 1)) * por).toFixed(2)
-    const despues = Math.max(0, +(unidades - (i === 0 ? f.gastados : 0)).toFixed(2))
-    return { nombre: p.nombre, despues, de: +((p.stock / (p.porPaquete || 1)) * por).toFixed(2), por }
+    const factor = (f.porPaquete || p.porPaquete || 1) / (p.porPaquete || 1)
+    const actual = +(p.stock * factor).toFixed(2)
+    const de = +((p.inicial ?? p.stock) * factor).toFixed(2)
+    const gastados = i === 0 ? f.gastados : 0
+    const despues = Math.max(0, gastados > 0 ? Math.min(actual, de - gastados) : actual)
+    return { nombre: p.nombre, despues, de }
   })
 
   return (
@@ -325,6 +330,7 @@ function FilaAjuste({ fila: f, enCasa, cambiar }) {
       </div>
       <p className="revision-nota">
         {resultado.map((r) => `${r.nombre}: quedan ${r.despues} de ${r.de}`).join(' · ')}
+        {f.vence && ` · vence ${textoVence(f.vence).replace(/^Vence /, '').toLowerCase()}`}
       </p>
     </div>
   )

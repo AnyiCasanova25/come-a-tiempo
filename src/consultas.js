@@ -29,10 +29,16 @@ export function agruparEnCasa(lotes) {
       nombre: l.producto?.nombre ?? 'Producto',
       categoria: l.producto?.categoria,
       stock: 0,
+      inicial: 0, // unidades compradas (para "ya gastamos N" = cuánto debe quedar)
       porPaquete: 1,
+      vences: [], // fechas de vencimiento de sus lotes
+      ultimaCompra: '',
     }
     p.stock = +(p.stock + l.cantidad).toFixed(2)
+    p.inicial = +(p.inicial + l.cantidadInicial).toFixed(2)
     p.porPaquete = Math.max(p.porPaquete, l.porPaquete ?? 1)
+    p.vences.push(l.vence)
+    if ((l.compradoEl ?? '') > p.ultimaCompra) p.ultimaCompra = l.compradoEl
     mapa.set(l.productoId, p)
   }
   return [...mapa.values()].sort((a, b) => a.nombre.localeCompare(b.nombre))

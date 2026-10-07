@@ -188,3 +188,109 @@ test('ajustes del 7 de octubre: lo que no estaba (compras nuevas)', () => {
     ['Maiz en lata', 'enlatados', 1, 3, 0, 730],
   ])
 })
+
+// Lista combinada (fechas del 4-oct + unidades del 7-oct): se puede pegar en cualquier estado
+export const COMBINADA = `Empanadas de pollo paquete 1 - 01 may 2027 - vienen 8
+Empanadas de pollo paquete 2 - 06 may 2027 - vienen 8
+Queso en lonchas - 10 nov 2026 - vienen 25, ya gastamos 5
+Salchichas de 14 - 28 oct 2026 - vienen 14
+Salchichas de 7 - 17 oct 2026 - vienen 7, ya gastamos 4
+Arepas - 29 oct 2026
+Arepa de queso - 13 oct 2026 - vienen 4, ya gastamos 2
+Tortillas - 03 nov 2026 - vienen 10
+Chorizo de las brisas - 07 nov 2026 - vienen 5
+Chocolate instantáneo - 21 ago 2028 - 2 paquetes
+Salsa de ajo - 16 feb 2027 - una
+Salsa mayonesa - 31 mar 2027 - una
+Salsa bar bq - una
+Mantequilla - 18 ene 2027 - un tarro
+Bonyurt mini - 19 nov 2026 - vienen 4
+Bonyurt grande - 20 oct 2026 - vienen 6, ya gastamos 2
+Salchichón - 04 nov 2026
+Pan tajado - 20 oct 2026 - vienen 13
+Pan perro - 08 oct 2026 - vienen 6, ya gastamos 3
+Atún - son dos paquetes, cada uno trae 3 laticas
+Maíz en lata - vienen 3 laticas
+Pony malta six pack - ya gastamos 2
+Coca cola en lata - 3 unidades
+Papas personal de limón Detodito - 1 paquete
+Galletas Bridge - vienen 8 paqueticos
+Galletas Nucita - vienen 6 unidades
+Jabón de manos - una
+Jabón líquido de cuerpo - un tarro
+Costilla ahumada - una bolsita
+Carne molida - libra y media`
+
+test('combinada en una casa vacía: todo es compra nueva', () => {
+  const filas = interpretarLista(COMBINADA, '2026-10-07')
+  assert.ok(filas.every((f) => f.accion === 'nuevo'))
+  const r = filas.map((f) => [f.nombre, f.cantidad * f.porPaquete, f.gastados, f.estimada ? '~' : f.vence])
+  assert.deepEqual(r, [
+    ['Empanadas de pollo paquete 1', 8, 0, '2027-05-01'],
+    ['Empanadas de pollo paquete 2', 8, 0, '2027-05-06'],
+    ['Queso en lonchas', 25, 5, '2026-11-10'],
+    ['Salchichas de 14', 14, 0, '2026-10-28'],
+    ['Salchichas de 7', 7, 4, '2026-10-17'],
+    ['Arepas', 1, 0, '2026-10-29'],
+    ['Arepa de queso', 4, 2, '2026-10-13'],
+    ['Tortillas', 10, 0, '2026-11-03'],
+    ['Chorizo de las brisas', 5, 0, '2026-11-07'],
+    ['Chocolate instantáneo', 2, 0, '2028-08-21'],
+    ['Salsa de ajo', 1, 0, '2027-02-16'],
+    ['Salsa mayonesa', 1, 0, '2027-03-31'],
+    ['Salsa bar bq', 1, 0, '~'],
+    ['Mantequilla', 1, 0, '2027-01-18'],
+    ['Bonyurt mini', 4, 0, '2026-11-19'],
+    ['Bonyurt grande', 6, 2, '2026-10-20'],
+    ['Salchichón', 1, 0, '2026-11-04'],
+    ['Pan tajado', 13, 0, '2026-10-20'],
+    ['Pan perro', 6, 3, '2026-10-08'],
+    ['Atún', 6, 0, '~'],
+    ['Maíz en lata', 3, 0, '~'],
+    ['Pony malta six pack', 6, 2, '~'],
+    ['Coca cola en lata', 3, 0, '~'],
+    ['Papas personal de limón detodito', 1, 0, '~'],
+    ['Galletas bridge', 8, 0, '~'],
+    ['Galletas nucita', 6, 0, '~'],
+    ['Jabón de manos', 1, 0, '~'],
+    ['Jabón líquido de cuerpo', 1, 0, '~'],
+    ['Costilla ahumada', 1, 0, '~'],
+    ['Carne molida', 1, 0, '~'],
+  ])
+})
+
+test('combinada sobre lo pegado el 4-oct: lo que ya estaba se ajusta, sin duplicar', () => {
+  const casa = interpretarLista(MERCADO, '2026-10-04').map((f, i) => ({
+    id: `p${i}`, nombre: f.nombre, categoria: f.categoria, porPaquete: 1,
+    stock: f.cantidad, inicial: f.cantidad, vences: [f.vence], ultimaCompra: '2026-10-04',
+  }))
+  const filas = interpretarLista(COMBINADA, '2026-10-07', [], casa)
+  const nombreDe = (o) => casa.find((p) => p.id === o).nombre
+  const ajustes = filas.filter((f) => f.accion === 'actualizar').map((f) => `${f.nombre} → ${f.objetivos.map(nombreDe).join(' + ')}`)
+  assert.deepEqual(ajustes, [
+    'Empanadas de pollo paquete 1 → Empanadas de pollo paquete 1',
+    'Empanadas de pollo paquete 2 → Empanadas porque 2',
+    'Queso en lonchas → Queso en lonchas',
+    'Salchichas de 14 → Salchicha 14',
+    'Salchichas de 7 → Salchicha 7',
+    'Arepas → Arepas',
+    'Arepa de queso → Arepa queso',
+    'Tortillas → Tortillas',
+    'Chorizo de las brisas → Chorizo de las brisas',
+    'Chocolate instantáneo → Chocolate',
+    'Salsa de ajo → Salsa ajo',
+    'Salsa mayonesa → Salsa bbc',
+    'Salsa bar bq → Salsa bar bq',
+    'Mantequilla → Mantequilla',
+    'Bonyurt mini → Bong yourt mini',
+    'Bonyurt grande → Bong yout grande',
+    'Salchichón → Salchichón',
+    'Pan tajado → Pan tajado',
+    'Pan perro → Pan perro',
+    'Atún → Atún',
+  ])
+  assert.deepEqual(filas.filter((f) => f.accion === 'nuevo').map((f) => f.nombre), [
+    'Maíz en lata', 'Pony malta six pack', 'Coca cola en lata', 'Papas personal de limón detodito', 'Galletas bridge',
+    'Galletas nucita', 'Jabón de manos', 'Jabón líquido de cuerpo', 'Costilla ahumada', 'Carne molida',
+  ])
+})

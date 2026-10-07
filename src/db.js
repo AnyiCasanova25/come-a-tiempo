@@ -159,11 +159,32 @@ export async function descontarProducto(productoId, cantidad, { tipo = 'consumo'
   return { descontado: cantidad - Math.max(0, falta), faltaron: Math.max(0, +falta.toFixed(2)) }
 }
 
-/** Ajuste de algo que ya está en la casa: todos sus lotes pasan a paquetes de N unidades */
-export async function ajustarPorPaquete(productoId, porPaquete) {
-  const lotes = await db.lotes.where('productoId').equals(productoId).filter((l) => l.estado === 'activo').toArray()
-  for (const lote of lotes) {
-    if ((lote.porPaquete ?? 1) !== Number(porPaquete)) await cambiarPorPaquete(lote.id, porPaquete)
+/**
+ * Ajuste de algo que ya está en la casa (desde una lista pegada):
+ *   porPaquete: todos sus lotes pasan a paquetes de N unidades
+ *   gastados:   lo gastado DESDE LA COMPRA ("ya gastamos 5" de 25 → deben quedar 20).
+ *               Si ya quedan 20 o menos, no se descuenta nada: pegar la misma lista
+ *               dos veces no descuenta dos veces.
+ *   vence:      fecha real que traía el renglón
+ */
+export async function ajustarProducto(productoId, { porPaquete = null, gastados = 0, vence = null } = {}) {
+  const activos = () => db.lotes.where('productoId').equals(productoId).filter((l) => l.estado === 'activo').toArray()
+  if (porPaquete) {
+    for (const lote of await activos()) {
+      if ((lote.porPaquete ?? 1) !== Number(porPaquete)) await cambiarPorPaquete(lote.id, porPaquete)
+    }
+  }
+  if (vence) {
+    for (const lote of await activos()) {
+      if (lote.vence !== vence) await cambiarVence(lote.id, vence)
+    }
+  }
+  if (gastados > 0) {
+    const lotes = await activos()
+    const stock = lotes.reduce((s, l) => s + l.cantidad, 0)
+    const inicial = lotes.reduce((s, l) => s + l.cantidadInicial, 0)
+    const sobra = +(stock - (inicial - gastados)).toFixed(2)
+    if (sobra > 0) await descontarProducto(productoId, sobra)
   }
 }
 
@@ -282,3 +303,8 @@ export async function importarTodo(datos) {
 }
 
 export { hoyISO }
+
+export async function renombrarProducto(productoId, nombre) {
+  if (!nombre.trim()) return
+  await db.productos.update(productoId, { nombre: nombre.trim(), actualizado: ahora() })
+}

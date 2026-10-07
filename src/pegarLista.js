@@ -41,6 +41,8 @@ const UNA_UNIDAD = /\b(es una unidad|una unidad|un tarro|una bolsita|una sola|^.
 function limpiarNombre(nombre) {
   let n = nombre.replace(VINETA, '').replace(/\([^)]*\)?/g, ' ').replace(/\s+/g, ' ').trim()
   n = n.replace(INICIO, '')
+  // "Atún - son dos paquetes…": lo que va después del guion es la explicación
+  n = n.split(/\s*-\s*/)[0]
   const corte = n.match(CORTE)
   if (corte) n = n.slice(0, corte.index)
   n = n.replace(/[\s\-/.:,;]+$/, '').replace(RELLENO_FINAL, '').trim().toLowerCase()
@@ -71,9 +73,13 @@ export function interpretarLista(texto, hoy, conocidos = [], enCasa = []) {
     const paquetes = aNum(minus.match(PAQUETES)?.[1] ?? 1)
     const porDetectado = detectarPorPaquete(renglon) ?? (UNA_UNIDAD.test(minus) ? 1 : null)
 
-    // ¿Ya está en la casa? (sin fecha = no es una compra nueva)
-    if (!fecha && enCasa.length) {
+    // ¿Ya está en la casa? Sin fecha, basta con que el nombre coincida. Con fecha, puede
+    // ser una compra nueva del mismo producto: solo es ajuste si ya hay un lote con esa
+    // misma fecha, o si es el mismo nombre comprado hace pocos días (la misma compra
+    // descrita otra vez). Así una lista se puede pegar dos veces sin duplicar nada.
+    if (enCasa.length) {
       const numeros = numerosDe(minus)
+      const hace10 = sumarDias(hoy, -10)
       const candidatos = enCasa
         .map((p) => {
           const c = coincidencia(nombre, p.nombre)
@@ -81,11 +87,19 @@ export function interpretarLista(texto, hoy, conocidos = [], enCasa = []) {
           const bonoNumero = [...numerosDe(p.nombre)].some((n) => numeros.has(n)) ? 1 : 0
           // Es el mismo si todas las palabras de uno están en el otro:
           // "chocolate instantáneo" ↔ "Chocolate", pero "salsa mayo" ✗ "Salsa bbc"
-          return { id: p.id, ok: c.cubreConsulta === 1 || c.cubreProducto === 1, puntos: c.puntos + bonoNumero }
+          const parecido = c.cubreConsulta === 1 || c.cubreProducto === 1
+          let ok = parecido
+          if (fecha) {
+            const mismaFecha = (p.vences ?? []).includes(fecha.iso)
+            const mismaPrimera = coincidencia(nombre.split(' ')[0], p.nombre.split(' ')[0]).cubreConsulta === 1
+            const mismoNombre = c.cubreConsulta === 1 && c.cubreProducto === 1
+            ok = (mismaFecha && (parecido || mismaPrimera)) || (mismoNombre && (p.ultimaCompra ?? '') >= hace10)
+          }
+          return { id: p.id, ok, puntos: c.puntos + bonoNumero + (fecha && (p.vences ?? []).includes(fecha.iso) ? 2 : 0) }
         })
         .filter((c) => c.ok)
       if (candidatos.length) {
-        ajustes.push({ orden: filas.length, renglon, nombre, candidatos, porPaquete: porDetectado, gastados, paquetes })
+        ajustes.push({ orden: filas.length, renglon, nombre, candidatos, porPaquete: porDetectado, gastados, paquetes, vence: fecha?.iso ?? null })
         filas.push(null) // se llena al final, cuando se sabe a qué producto le toca
         continue
       }
@@ -119,12 +133,18 @@ export function interpretarLista(texto, hoy, conocidos = [], enCasa = []) {
           nombre: a.nombre,
           objetivos,
           porPaquete: a.porPaquete,
+          vence: a.vence, // si el renglón trae fecha real, se corrige la del lote
           paquetes: a.paquetes,
           gastados: a.gastados,
           incluir: true,
         }
       : // ya otro renglón se llevó ese producto: entonces es algo nuevo
-        filaNueva({ ...a, porDetectado: a.porPaquete, fecha: null, fechaInvalida: false }, hoy, porNombre, a.orden)
+        filaNueva(
+          { ...a, porDetectado: a.porPaquete, fecha: a.vence ? { iso: a.vence, exacta: true } : null, fechaInvalida: false },
+          hoy,
+          porNombre,
+          a.orden,
+        )
   }
   return filas.filter(Boolean)
 }

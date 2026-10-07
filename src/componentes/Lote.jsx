@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { MinusCircle, PackageCheck, Trash2, CalendarDays, Eraser, Boxes } from 'lucide-react'
+import { MinusCircle, PackageCheck, Trash2, CalendarDays, Eraser, Boxes, Pencil } from 'lucide-react'
 import Hoja from './Hoja'
 import { categoria } from '../categorias'
 import { nivel, textoVence, fechaCorta } from '../fechas'
-import { consumir, seAcabo, botar, eliminarLote, cambiarVence, cambiarPorPaquete } from '../db'
+import { consumir, seAcabo, botar, eliminarLote, cambiarVence, cambiarPorPaquete, renombrarProducto } from '../db'
 import { textoCantidad } from '../unidades'
 import { avisar } from './Aviso'
 
@@ -28,11 +28,12 @@ export function FilaLote({ lote, diasAviso, onAbrir }) {
 // Acciones sobre un lote: descontar lo que se usó, se acabó, botar, unidades del paquete,
 // corregir fecha, eliminar
 export function AccionesLote({ lote, onCerrar }) {
-  // modo: acciones | fecha | unidades
+  // modo: acciones | fecha | unidades | nombre
   const [modo, setModo] = useState('acciones')
   const [fecha, setFecha] = useState(lote?.vence ?? '')
   const [usadas, setUsadas] = useState(1)
   const [porPaquete, setPorPaquete] = useState(lote?.porPaquete > 1 ? lote.porPaquete : '')
+  const [nuevoNombre, setNuevoNombre] = useState(lote?.producto?.nombre ?? '')
 
   if (!lote) return null
   const nombre = lote.producto?.nombre ?? 'Producto'
@@ -59,6 +60,22 @@ export function AccionesLote({ lote, onCerrar }) {
           </label>
           <button className="boton" disabled={!fecha} onClick={hacer(() => cambiarVence(lote.id, fecha), 'Fecha actualizada')}>
             Guardar fecha
+          </button>
+        </div>
+      )}
+
+      {modo === 'nombre' && (
+        <div className="pila">
+          <label className="campo">
+            <span>Nombre del producto</span>
+            <input value={nuevoNombre} onChange={(e) => setNuevoNombre(e.target.value)} autoFocus />
+          </label>
+          <button
+            className="boton"
+            disabled={!nuevoNombre.trim()}
+            onClick={hacer(() => renombrarProducto(lote.productoId, nuevoNombre), 'Nombre cambiado')}
+          >
+            Guardar nombre
           </button>
         </div>
       )}
@@ -130,6 +147,9 @@ export function AccionesLote({ lote, onCerrar }) {
           </button>
           <button className="accion" onClick={() => setModo('fecha')}>
             <CalendarDays /> {lote.venceEstimada ? 'Poner la fecha real' : 'Cambiar fecha'}
+          </button>
+          <button className="accion" onClick={() => setModo('nombre')}>
+            <Pencil /> Cambiar nombre
           </button>
           <button className="accion accion-suave" onClick={hacer(() => eliminarLote(lote.id), 'Registro eliminado')}>
             <Eraser /> Eliminar (lo registré por error)
