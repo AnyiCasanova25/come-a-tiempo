@@ -61,7 +61,7 @@ function formas(palabra) {
 
 // Nombres distintos para lo mismo (en la tirilla los productos van con su marca)
 const EQUIVALENTES = [
-  ['yogur', 'yogurt', 'yurt', 'bonyurt', 'yogo', 'alpinito'],
+  ['yogur', 'yogurt', 'yurt', 'bonyurt', 'bonyourt', 'yourt', 'yout', 'yogo', 'alpinito'],
   ['salchicha', 'salch'],
   ['gaseosa', 'coca', 'cola'],
   ['papel', 'higienico'],
@@ -83,7 +83,8 @@ function parecido(q, t) {
   const cerca = (a, b) => a === b || (b.startsWith(a) && b.length - a.length <= 1)
   if (cerca(q.dim, t.base) || cerca(t.dim, q.base)) return 2
   const g = grupoDe.get(q.base)
-  if (g !== undefined && (grupoDe.get(t.base) === g || EQUIVALENTES[g].some((e) => t.base.includes(e)))) return 2
+  // (por el comienzo de la palabra: "cola" no debe encontrarse dentro de "chocolate")
+  if (g !== undefined && (grupoDe.get(t.base) === g || EQUIVALENTES[g].some((e) => t.base.startsWith(e)))) return 2
   if (Math.min(q.base.length, t.base.length) >= 4 && (t.base.startsWith(q.base) || q.base.startsWith(t.base))) return 1
   return 0
 }
@@ -207,5 +208,22 @@ function interpretarParte(parte, productos) {
     productoId: elegido?.id ?? null,
     // otros que también podrían ser (para que se pueda escoger en la revisión)
     alternativas: candidatos.slice(1, 4).map((c) => c.id),
+  }
+}
+
+/**
+ * Qué tanto se parecen un texto y el nombre de un producto, para decidir si un renglón
+ * habla de algo que ya está en la casa: cuántas palabras del texto están en el nombre
+ * (cubreConsulta) y cuántas del nombre están en el texto (cubreProducto), de 0 a 1.
+ */
+export function coincidencia(consulta, nombre) {
+  const q = palabrasDe(consulta)
+  const t = palabrasDe(nombre)
+  if (!q.length || !t.length) return { cubreConsulta: 0, cubreProducto: 0, puntos: 0 }
+  const fuerte = (a, lista, alReves) => lista.some((b) => (alReves ? parecido(b, a) : parecido(a, b)) >= 2)
+  return {
+    cubreConsulta: q.filter((w) => fuerte(w, t)).length / q.length,
+    cubreProducto: t.filter((w) => fuerte(w, q, true)).length / t.length,
+    puntos: q.reduce((s, w) => s + Math.max(0, ...t.map((x) => parecido(w, x))), 0) / q.length,
   }
 }

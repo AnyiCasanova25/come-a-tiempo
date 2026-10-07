@@ -20,6 +20,24 @@ export function useLotesActivos() {
   }, [])
 }
 
+// Lo que hay en la casa, por producto: unidades que quedan sumando todos sus lotes
+export function agruparEnCasa(lotes) {
+  const mapa = new Map()
+  for (const l of lotes ?? []) {
+    const p = mapa.get(l.productoId) ?? {
+      id: l.productoId,
+      nombre: l.producto?.nombre ?? 'Producto',
+      categoria: l.producto?.categoria,
+      stock: 0,
+      porPaquete: 1,
+    }
+    p.stock = +(p.stock + l.cantidad).toFixed(2)
+    p.porPaquete = Math.max(p.porPaquete, l.porPaquete ?? 1)
+    mapa.set(l.productoId, p)
+  }
+  return [...mapa.values()].sort((a, b) => a.nombre.localeCompare(b.nombre))
+}
+
 export function useAjuste(clave, defecto) {
   return useLiveQuery(() => leerAjuste(clave, defecto), [clave], defecto)
 }

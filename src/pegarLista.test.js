@@ -103,3 +103,88 @@ test('adivinar categoría', () => {
   assert.equal(adivinarCategoria('Jabón Rey'), 'aseo')
   assert.equal(adivinarCategoria('Cosa rara'), 'otros')
 })
+
+// Lo que había en la casa después de pegar el mercado del 4 de octubre
+const EN_CASA = interpretarLista(MERCADO, HOY).map((f, i) => ({
+  id: `p${i}`,
+  nombre: f.nombre,
+  categoria: f.categoria,
+  porPaquete: 1,
+  stock: f.cantidad,
+}))
+const id = (nombre) => EN_CASA.find((p) => p.nombre === nombre).id
+
+// El mensaje del 7 de octubre, tal cual
+const AJUSTES = `del bonyourt vienen 6 unidades ya gastamos 2
+bonyourt mini vienen 4
+mantequilla viene en tarrito entonces es una unidad es un tarro grandesito
+el queso en lonchas vienen 25 lonchas ya gastamos 5
+salchicha x7 vienen 7 ya gastamos 4
+salchicha x14 vienen 14
+chorizo de las brisas x5 vienen 5
+pan perro vienen 6 gastamos 3
+arepa queso vienen 4 gastamos 2
+tortillas x 10 vienen 10
+atun son dos paquetes cada uno trae 3 laticas
+salsa de ajo una
+salsa mayo una
+salsa bar bq una
+chocolate instantáneo 2 paquetes medianos ese debe durar el mes
+empanadas dos paquetes cada uno vienen por 8
+paquete de 6 latas de pony malta gastamos 2
+coca cola en lata 3 unidades
+1 paquete de papas personal de limon marca detodito sabor limon
+galletas bridge paquete que vienen 8 paqueticos de galleta
+jabon de manos en papeleta mediana
+jabon liquido de cuerpo el tarro mediano
+paquete de galletas nucita que vienen 6 unidades
+costilla ahumada una bolsita  (Aproxima el tiempo limite de consumo de la carne)
+carne molida libra y media(Aproxima el tiempo limite de consumo de la carne)
+maiz en lata vienen 3 laticas en el paquete
+pan tajado vienen 13`
+
+test('ajustes del 7 de octubre: lo que ya estaba en la casa', () => {
+  const filas = interpretarLista(AJUSTES, '2026-10-07', [], EN_CASA)
+  const nombreDe = (o) => EN_CASA.find((p) => p.id === o).nombre
+  const ajustes = filas
+    .filter((f) => f.accion === 'actualizar')
+    .map((f) => [f.objetivos.map(nombreDe).join(' + '), f.porPaquete, f.gastados])
+  assert.deepEqual(ajustes, [
+    ['Bong yout grande', 6, 2],
+    ['Bong yourt mini', 4, 0],
+    ['Mantequilla', 1, 0],
+    ['Queso en lonchas', 25, 5],
+    ['Salchicha 7', 7, 4],
+    ['Salchicha 14', 14, 0],
+    ['Chorizo de las brisas', 5, 0],
+    ['Pan perro', 6, 3],
+    ['Arepa queso', 4, 2],
+    ['Tortillas', 10, 0],
+    ['Atún', 3, 0],
+    ['Salsa ajo', 1, 0],
+    ['Salsa bar bq', 1, 0],
+    ['Chocolate', null, 0],
+    ['Empanadas de pollo paquete 1 + Empanadas porque 2', 8, 0],
+    ['Pan tajado', 13, 0],
+  ])
+})
+
+test('ajustes del 7 de octubre: lo que no estaba (compras nuevas)', () => {
+  const filas = interpretarLista(AJUSTES, '2026-10-07', [], EN_CASA)
+  const nuevos = filas
+    .filter((f) => f.accion === 'nuevo')
+    .map((f) => [f.nombre, f.categoria, f.cantidad, f.porPaquete, f.gastados, f.vidaDias])
+  assert.deepEqual(nuevos, [
+    ['Salsa mayo', 'aceites', 1, 1, 0, 270],
+    ['Pony malta', 'bebidas', 1, 6, 2, 180],
+    ['Coca cola en lata', 'bebidas', 1, 3, 0, 180],
+    ['Papas personal de limon', 'mecato', 1, 1, 0, 120],
+    ['Galletas bridge', 'cereales', 1, 8, 0, 180],
+    ['Jabon de manos', 'aseo', 1, 1, 0, 730],
+    ['Jabon liquido de cuerpo', 'aseo', 1, 1, 0, 730],
+    ['Galletas nucita', 'cereales', 1, 6, 0, 180],
+    ['Costilla ahumada', 'carnes', 1, 1, 0, 10],
+    ['Carne molida', 'carnes', 1, 1, 0, 2],
+    ['Maiz en lata', 'enlatados', 1, 3, 0, 730],
+  ])
+})

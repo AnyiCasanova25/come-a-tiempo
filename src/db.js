@@ -63,8 +63,8 @@ export async function guardarProducto(datos) {
 
 // cantidad = paquetes comprados; porPaquete = unidades que trae cada uno.
 // El lote guarda UNIDADES: 1 paquete de 25 lonchas → 25, y de ahí se van descontando.
-export async function agregarLote({ producto, cantidad, porPaquete = 1, vence, venceEstimada, precio, ubicacion }) {
-  const compradoEl = hoyISO()
+// compradoEl: cuándo se compró (por defecto hoy; una lista se puede registrar días después)
+export async function agregarLote({ producto, cantidad, porPaquete = 1, vence, venceEstimada, precio, ubicacion, compradoEl = hoyISO() }) {
   const por = Math.max(1, Math.round(Number(porPaquete) || 1))
   const unidades = Number(cantidad) * por
   const lote = {
@@ -157,6 +157,14 @@ export async function descontarProducto(productoId, cantidad, { tipo = 'consumo'
     }
   })
   return { descontado: cantidad - Math.max(0, falta), faltaron: Math.max(0, +falta.toFixed(2)) }
+}
+
+/** Ajuste de algo que ya está en la casa: todos sus lotes pasan a paquetes de N unidades */
+export async function ajustarPorPaquete(productoId, porPaquete) {
+  const lotes = await db.lotes.where('productoId').equals(productoId).filter((l) => l.estado === 'activo').toArray()
+  for (const lote of lotes) {
+    if ((lote.porPaquete ?? 1) !== Number(porPaquete)) await cambiarPorPaquete(lote.id, porPaquete)
+  }
 }
 
 /**

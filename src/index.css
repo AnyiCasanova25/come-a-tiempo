@@ -370,3 +370,10 @@ input:focus-visible, select:focus-visible, button:focus-visible {
 .gasto-texto { font-style: italic; color: var(--texto-suave); font-size: 0.9rem; }
 .unidades-fila input.gasto-fecha { width: 150px; flex: none; }
 .revision-fila.sin-producto { border-color: var(--amarillo); }
+
+/* ---------- Ajustes de lo que ya está en la casa ---------- */
+.fila-ajuste { border-color: var(--primario); background: var(--primario-suave); }
+.ajuste-titulo { align-items: center; gap: 10px; font-size: 0.92rem; }
+.ajuste-titulo svg { vertical-align: -2px; }
+.insignia { flex: none; align-self: center; font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 99px; }
+.insignia-nuevo { background: var(--amarillo-fondo); color: var(--amarillo); }

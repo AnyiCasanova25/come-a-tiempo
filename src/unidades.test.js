@@ -30,3 +30,14 @@ test('pesos y volúmenes no son unidades', () => {
   assert.equal(detectarPorPaquete('Arroz Diana 5000G'), null)
   assert.equal(detectarPorPaquete('Mantequilla'), null)
 })
+
+test('como se escribe en una lista ("vienen", "trae", "laticas")', () => {
+  assert.equal(detectarPorPaquete('del bonyourt vienen 6 unidades ya gastamos 2'), 6)
+  assert.equal(detectarPorPaquete('salchicha x7 vienen 7 ya gastamos 4'), 7)
+  assert.equal(detectarPorPaquete('atun son dos paquetes cada uno trae 3 laticas'), 3)
+  assert.equal(detectarPorPaquete('empanadas dos paquetes cada uno vienen por 8'), 8)
+  assert.equal(detectarPorPaquete('galletas bridge paquete que vienen 8 paqueticos de galleta'), 8)
+  assert.equal(detectarPorPaquete('paquete de 6 latas de pony malta gastamos 2'), 6)
+  assert.equal(detectarPorPaquete('chocolate instantáneo 2 paquetes medianos'), null)
+  assert.equal(detectarPorPaquete('mantequilla viene en tarrito entonces es una unidad'), null)
+})

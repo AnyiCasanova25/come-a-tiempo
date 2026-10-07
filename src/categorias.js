@@ -111,3 +111,24 @@ export function adivinarCategoria(nombre) {
   }
   return 'otros'
 }
+
+// Vida útil en la NEVERA de productos que duran mucho menos (o más) que su categoría.
+// Para lo que se congela vale mucho más: la carne molida congelada aguanta 3-4 meses.
+const VIDA_POR_NOMBRE = [
+  ['carne molida', 2],
+  ['molida', 2],
+  ['pescado', 2],
+  ['mojarra', 2],
+  ['tilapia', 2],
+  ['pollo', 2],
+  ['pechuga', 2],
+  ['ahumad', 10], // costilla/chuleta ahumada: ya viene curada
+  ['costilla', 3],
+  ['carne', 3],
+]
+
+/** Días que dura en la nevera según el nombre, o null si manda la categoría */
+export function vidaUtilPorNombre(nombre) {
+  const t = nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  return VIDA_POR_NOMBRE.find(([clave]) => t.includes(clave))?.[1] ?? null
+}

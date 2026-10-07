@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Mic, Check, ArrowLeft, X } from 'lucide-react'
-import { useLotesActivos } from '../consultas'
+import { useLotesActivos, agruparEnCasa } from '../consultas'
 import { interpretarGastos } from '../leerGastos'
 import { descontarProducto } from '../db'
 import { categoria } from '../categorias'
@@ -11,28 +11,10 @@ const EJEMPLO = `3 quesitos, 2 ponis
 se acabó la mantequilla
 boté 2 yogures`
 
-// Lo que hay en la casa, por producto: unidades que quedan sumando todos sus lotes
-function agrupar(lotes) {
-  const mapa = new Map()
-  for (const l of lotes ?? []) {
-    const p = mapa.get(l.productoId) ?? {
-      id: l.productoId,
-      nombre: l.producto?.nombre ?? 'Producto',
-      categoria: l.producto?.categoria,
-      stock: 0,
-      porPaquete: l.producto?.porPaquete ?? 1,
-    }
-    p.stock = +(p.stock + l.cantidad).toFixed(2)
-    p.porPaquete = Math.max(p.porPaquete, l.porPaquete ?? 1)
-    mapa.set(l.productoId, p)
-  }
-  return [...mapa.values()].sort((a, b) => a.nombre.localeCompare(b.nombre))
-}
-
 // "¿Qué gastaron?": se escribe, se dicta o se pega (lista de WhatsApp) y se descuenta
 export default function Gastos({ ir }) {
   const lotes = useLotesActivos()
-  const enCasa = useMemo(() => agrupar(lotes), [lotes])
+  const enCasa = useMemo(() => agruparEnCasa(lotes), [lotes])
   const [texto, setTexto] = useState('')
   const [filas, setFilas] = useState(null)
   const [guardando, setGuardando] = useState(false)

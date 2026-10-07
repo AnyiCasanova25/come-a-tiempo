@@ -7,7 +7,9 @@
 const sinTildes = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '')
 
 const CONTENEDORES =
-  'UND|UNDS|UNID|UNIDS|UNIDADES|UN|LONCHAS|TAJADAS|REBANADAS|SOBRES|BOLSITAS|PAQUETES|PAQ|LATAS|BOTELLAS|PIEZAS|PZAS|TABLETAS|TABC|TAB|BARRAS|PORCIONES'
+  // (no incluye "paquetes": "2 paquetes" son dos paquetes, no 2 unidades por paquete)
+  'UND|UNDS|UNID|UNIDS|UNIDADES|UN|LONCHAS|TAJADAS|REBANADAS|SOBRES|BOLSITAS|LATAS|LATICAS|BOTELLAS|PIEZAS|PZAS|' +
+  'TABLETAS|TABC|TAB|BARRAS|PORCIONES|PAQUETICOS|PAQUETITOS|EMPANADAS|ARE[PB]AS|TORTILLAS'
 const MEDIDA = '(?:G|GR|GRS|KG|ML|L|LT|LTS|MG|CC|OZ|LB|CM|M)\\b'
 
 const REGLAS = [
@@ -16,6 +18,8 @@ const REGLAS = [
   // "DOCENA" / "MEDIA DOCENA"
   [/\bMEDIA DOCENA\b/, () => 6],
   [/\bDOCENA\b/, () => 12],
+  // "vienen 7", "viene por 8", "cada uno trae 3"
+  [/\b(?:VIENEN|VIENE|TRAE|TRAEN)\s+(?:POR\s+)?(\d{1,3})\b/, (m) => +m[1]],
   // "6UND", "6 UNIDADES", "25 LONCHAS"
   [new RegExp(`(\\d{1,3})\\s*(?:${CONTENEDORES})\\b`), (m) => +m[1]],
   // "X30", "X 4" (pero no "X 200 ML")
