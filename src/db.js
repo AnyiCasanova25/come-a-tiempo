@@ -331,3 +331,16 @@ export async function congelar(loteId) {
   })
   return vence
 }
+
+/**
+ * "Empezar de cero": borra lo que hay en la casa (productos, compras y gastos).
+ * La lista de compras y los ajustes se conservan (sus renglones quedan sin producto).
+ */
+export async function borrarInventario() {
+  await db.transaction('rw', db.productos, db.lotes, db.movimientos, db.lista, async () => {
+    await db.productos.clear()
+    await db.lotes.clear()
+    await db.movimientos.clear()
+    await db.lista.toCollection().modify({ productoId: null, actualizado: ahora() })
+  })
+}

@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react'
-import { Bell, Download, Upload, Users } from 'lucide-react'
+import { Bell, Download, Upload, Users, RefreshCw, Eraser } from 'lucide-react'
 import { useAjuste, DIAS_AVISO_DEFECTO } from '../consultas'
-import { guardarAjuste, exportarTodo, importarTodo, hoyISO } from '../db'
+import { guardarAjuste, exportarTodo, importarTodo, hoyISO, borrarInventario } from '../db'
+import Hoja from '../componentes/Hoja'
+import { useLotesActivos } from '../consultas'
 import { pedirPermiso, revisarYAvisar, soportaNotificaciones } from '../notificaciones'
 import { avisar } from '../componentes/Aviso'
 
@@ -9,6 +11,30 @@ export default function Ajustes() {
   const diasAviso = useAjuste('diasAviso', DIAS_AVISO_DEFECTO)
   const [permiso, setPermiso] = useState(soportaNotificaciones() ? Notification.permission : 'no-soportado')
   const archivo = useRef(null)
+  const lotes = useLotesActivos()
+  const [confirmarBorrado, setConfirmarBorrado] = useState(false)
+  const [buscando, setBuscando] = useState(false)
+
+  // Pide al navegador la versión nueva de la app y recarga si la hay
+  const buscarActualizacion = async () => {
+    setBuscando(true)
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration()
+      await reg?.update()
+      avisar('Revisando… si hay versión nueva, la app se recarga sola')
+      setTimeout(() => location.reload(), 2500)
+    } catch {
+      location.reload()
+    } finally {
+      setTimeout(() => setBuscando(false), 2500)
+    }
+  }
+
+  const borrarTodo = async () => {
+    await borrarInventario()
+    setConfirmarBorrado(false)
+    avisar('Listo: la casa está vacía. Ya puedes pegar tu lista')
+  }
 
   const activar = async () => setPermiso(await pedirPermiso())
 
@@ -86,7 +112,39 @@ export default function Ajustes() {
         </div>
       </section>
 
-      <p className="nota pie">Come a tiempo con SyA · versión 0.3</p>
+      <section className="bloque">
+        <h2 className="seccion-titulo"><Eraser size={16} /> Empezar de cero</h2>
+        <p className="nota">
+          Borra todo lo que hay en “En casa” (y su historial de gastos), por ejemplo si algo quedó duplicado
+          y prefieres volver a pegar tu lista. La lista de compras y estos ajustes no se borran.
+        </p>
+        <button className="boton boton-peligro" onClick={() => setConfirmarBorrado(true)} disabled={!lotes?.length}>
+          <Eraser size={18} /> Borrar todo lo de la casa
+        </button>
+      </section>
+
+      <section className="bloque">
+        <p className="nota">
+          Come a tiempo con SyA · versión <strong>{__VERSION__}</strong> · publicada el{' '}
+          {new Date(__PUBLICADA__).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}
+        </p>
+        <button className="boton boton-secundario" onClick={buscarActualizacion} disabled={buscando}>
+          <RefreshCw size={18} /> Buscar actualización
+        </button>
+      </section>
+
+      <Hoja abierta={confirmarBorrado} onCerrar={() => setConfirmarBorrado(false)} titulo="¿Borrar todo lo de la casa?">
+        <p className="hoja-sub">
+          Se borran los {lotes?.length ?? 0} registros de “En casa” y su historial. No se puede deshacer
+          (si quieres, primero toca “Descargar copia” en Respaldo).
+        </p>
+        <div className="acciones">
+          <button className="accion accion-peligro" onClick={borrarTodo}>
+            <Eraser /> Sí, borrar todo
+          </button>
+          <button className="accion" onClick={() => setConfirmarBorrado(false)}>Cancelar</button>
+        </div>
+      </Hoja>
     </div>
   )
 }

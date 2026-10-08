@@ -1,10 +1,18 @@
 import react from '@vitejs/plugin-react'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 import { defineConfig } from 'vite'
+import { readFileSync } from 'node:fs'
+
+const { version } = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
 import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
+  // Versión y fecha de publicación, visibles en Ajustes (para saber si el celular ya actualizó)
+  define: {
+    __VERSION__: JSON.stringify(version),
+    __PUBLICADA__: JSON.stringify(new Date().toISOString()),
+  },
   // En GitHub Pages la app vive en /<repositorio>/; en local, en la raíz
   base: process.env.BASE_PATH || '/',
   plugins: [

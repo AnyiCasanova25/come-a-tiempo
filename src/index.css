@@ -377,3 +377,4 @@ input:focus-visible, select:focus-visible, button:focus-visible {
 .ajuste-titulo svg { vertical-align: -2px; }
 .insignia { flex: none; align-self: center; font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 99px; }
 .insignia-nuevo { background: var(--amarillo-fondo); color: var(--amarillo); }
+.boton-peligro { background: var(--rojo); color: #fff; }
