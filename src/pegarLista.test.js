@@ -14,7 +14,7 @@ Salchicha 14 - 28 oct 2026
 
 Salchicha 7 - 17 oct 2026
 
-Arepas - 29 oct 2026
+Arepas - 29 oct 2026 - vienen 10
 
 Tortillas - 03 nov 2026
 
@@ -195,7 +195,7 @@ Empanadas de pollo paquete 2 - 06 may 2027 - vienen 8
 Queso en lonchas - 10 nov 2026 - vienen 25, ya gastamos 5
 Salchichas de 14 - 28 oct 2026 - vienen 14
 Salchichas de 7 - 17 oct 2026 - vienen 7, ya gastamos 4
-Arepas - 29 oct 2026
+Arepas - 29 oct 2026 - vienen 10
 Arepa de queso - 13 oct 2026 - vienen 4, ya gastamos 2
 Tortillas - 03 nov 2026 - vienen 10
 Chorizo de las brisas - 07 nov 2026 - vienen 5
@@ -231,7 +231,7 @@ test('combinada en una casa vacía: todo es compra nueva', () => {
     ['Queso en lonchas', 25, 5, '2026-11-10'],
     ['Salchichas de 14', 14, 0, '2026-10-28'],
     ['Salchichas de 7', 7, 4, '2026-10-17'],
-    ['Arepas', 1, 0, '2026-10-29'],
+    ['Arepas', 10, 0, '2026-10-29'],
     ['Arepa de queso', 4, 2, '2026-10-13'],
     ['Tortillas', 10, 0, '2026-11-03'],
     ['Chorizo de las brisas', 5, 0, '2026-11-07'],
