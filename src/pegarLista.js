@@ -1,5 +1,5 @@
 import { separarRenglon } from './leerFecha.js'
-import { adivinarCategoria, categoria, vidaUtilPorNombre } from './categorias.js'
+import { adivinarCategoria, categoria, vidaUtilPorNombre, vidaEnCongelador } from './categorias.js'
 import { sumarDias } from './fechas.js'
 import { detectarPorPaquete } from './unidades.js'
 import { coincidencia } from './leerGastos.js'
@@ -23,7 +23,7 @@ const aNum = (s) => (s in NUM ? NUM[s] : Number(s))
 // Dónde termina el nombre y empieza la explicación ("vienen 6…", "ya gastamos…", "x7")
 const CORTE = new RegExp(
   `\\s(?:vienen|viene|trae|traen|son|cada|ya|gastamos|gaste|usamos|comimos|que|tarro|tarrito|bolsita|bolsa|` +
-    `papeleta|libra|libras|kilo|kilos|marca|sabor|ese|esa|entonces|x\\s?\\d+|` +
+    `papeleta|libra|libras|kilo|kilos|marca|sabor|ese|esa|entonces|congelador|congelada|congelado|congeladas|congelados|nevera|x\\s?\\d+|` +
     `(?:${NUM_RE})\\s+(?:paquetes?|unidad(?:es)?|laticas|latas|lonchas|bolsitas|tarros?))\\b`,
   'i',
 )
@@ -72,6 +72,8 @@ export function interpretarLista(texto, hoy, conocidos = [], enCasa = []) {
     const gastados = aNum(minus.match(GASTADOS)?.[1] ?? 0)
     const paquetes = aNum(minus.match(PAQUETES)?.[1] ?? 1)
     const porDetectado = detectarPorPaquete(renglon) ?? (UNA_UNIDAD.test(minus) ? 1 : null)
+    // "carne molida, en el congelador": dura meses en vez de días
+    const enCongelador = /\bcongelad/.test(minus)
 
     // ¿Ya está en la casa? Sin fecha, basta con que el nombre coincida. Con fecha, puede
     // ser una compra nueva del mismo producto: solo es ajuste si ya hay un lote con esa
@@ -99,12 +101,12 @@ export function interpretarLista(texto, hoy, conocidos = [], enCasa = []) {
         })
         .filter((c) => c.ok)
       if (candidatos.length) {
-        ajustes.push({ orden: filas.length, renglon, nombre, candidatos, porPaquete: porDetectado, gastados, paquetes, vence: fecha?.iso ?? null })
+        ajustes.push({ orden: filas.length, renglon, nombre, candidatos, porPaquete: porDetectado, gastados, paquetes, vence: fecha?.iso ?? null, enCongelador })
         filas.push(null) // se llena al final, cuando se sabe a qué producto le toca
         continue
       }
     }
-    const nueva = filaNueva({ nombre, fecha, fechaInvalida, gastados, paquetes, porDetectado }, hoy, porNombre, filas.length)
+    const nueva = filaNueva({ nombre, fecha, fechaInvalida, gastados, paquetes, porDetectado, enCongelador }, hoy, porNombre, filas.length)
 
     // Mismo producto y misma fecha en otro renglón → una unidad más
     const igual = filas.find((f) => f?.accion === 'nuevo' && f.nombre.toLowerCase() === nombre.toLowerCase() && f.vence === nueva.vence)
@@ -134,6 +136,7 @@ export function interpretarLista(texto, hoy, conocidos = [], enCasa = []) {
           objetivos,
           porPaquete: a.porPaquete,
           vence: a.vence, // si el renglón trae fecha real, se corrige la del lote
+          congelar: a.enCongelador,
           paquetes: a.paquetes,
           gastados: a.gastados,
           incluir: true,
@@ -149,16 +152,19 @@ export function interpretarLista(texto, hoy, conocidos = [], enCasa = []) {
   return filas.filter(Boolean)
 }
 
-function filaNueva({ nombre, fecha, fechaInvalida, gastados, paquetes, porDetectado }, hoy, porNombre, orden) {
+function filaNueva({ nombre, fecha, fechaInvalida, gastados, paquetes, porDetectado, enCongelador }, hoy, porNombre, orden) {
   const conocido = porNombre.get(nombre.toLowerCase())
   const cat = conocido?.categoria ?? adivinarCategoria(nombre)
   // Carnes, pollo y pescado duran mucho menos que su categoría en la nevera
-  const vidaDias = conocido?.vidaUtilDias ?? vidaUtilPorNombre(nombre) ?? categoria(cat).dias
+  const vidaDias = enCongelador
+    ? vidaEnCongelador(nombre, cat)
+    : (conocido?.vidaUtilDias ?? vidaUtilPorNombre(nombre) ?? categoria(cat).dias)
   const vence = fecha ? fecha.iso : sumarDias(hoy, vidaDias)
 
   let aviso = null
   if (fechaInvalida) aviso = 'Esa fecha no existe: se estimó, corrígela'
   else if (!fecha && categoria(cat).sinFecha) aviso = 'Dura años: fecha estimada'
+  else if (!fecha && enCongelador) aviso = `En el congelador dura ~${Math.round(vidaDias / 30)} meses: fecha estimada`
   else if (!fecha && vidaUtilPorNombre(nombre)) aviso = `En la nevera dura ~${vidaDias} días (congelado, meses): fecha estimada`
   else if (!fecha) aviso = 'Sin fecha: estimada'
   else if (!fecha.exacta) aviso = 'Solo mes y año: último día del mes'
@@ -176,6 +182,7 @@ function filaNueva({ nombre, fecha, fechaInvalida, gastados, paquetes, porDetect
     advertencia: fechaInvalida,
     cantidad: paquetes,
     porPaquete: porDetectado ?? conocido?.porPaquete ?? 1,
+    ubicacion: enCongelador ? 'congelador' : categoria(cat).ubicacion,
     gastados,
     incluir: true,
   }

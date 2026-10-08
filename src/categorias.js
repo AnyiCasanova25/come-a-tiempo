@@ -132,3 +132,21 @@ export function vidaUtilPorNombre(nombre) {
   const t = nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   return VIDA_POR_NOMBRE.find(([clave]) => t.includes(clave))?.[1] ?? null
 }
+
+// Vida útil en el CONGELADOR (días), según el nombre y la categoría.
+// Referencia: carne molida 3-4 meses, cortes de res/cerdo 4-6, pollo 6-9, embutidos 1-2.
+const CONGELADOR_POR_NOMBRE = [
+  ['molida', 120],
+  ['pollo', 240],
+  ['pechuga', 240],
+  ['pescado', 180],
+  ['mojarra', 180],
+  ['tilapia', 180],
+  ['ahumad', 60],
+]
+const CONGELADOR_POR_CATEGORIA = { carnes: 150, embutidos: 60, pan: 90, congelados: 90, quesos: 120, lacteos: 60 }
+
+export function vidaEnCongelador(nombre, idCategoria) {
+  const t = nombre.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  return CONGELADOR_POR_NOMBRE.find(([clave]) => t.includes(clave))?.[1] ?? CONGELADOR_POR_CATEGORIA[idCategoria] ?? 90
+}

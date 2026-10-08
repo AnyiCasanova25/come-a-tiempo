@@ -294,3 +294,10 @@ test('combinada sobre lo pegado el 4-oct: lo que ya estaba se ajusta, sin duplic
     'Galletas nucita', 'Jabón de manos', 'Jabón líquido de cuerpo', 'Costilla ahumada', 'Carne molida',
   ])
 })
+
+test('"en el congelador": dura meses', () => {
+  const [carne, costilla] = interpretarLista('Carne molida - libra y media - en el congelador\nCostilla ahumada congelada', '2026-10-04')
+  assert.deepEqual([carne.nombre, carne.ubicacion, carne.vence], ['Carne molida', 'congelador', '2027-02-01'])
+  assert.deepEqual([costilla.nombre, costilla.ubicacion, costilla.vence], ['Costilla ahumada', 'congelador', '2026-12-03'])
+  assert.match(carne.aviso, /congelador dura ~4 meses/)
+})

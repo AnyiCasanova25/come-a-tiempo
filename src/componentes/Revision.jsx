@@ -59,7 +59,7 @@ export default function Revision({ titulo, subtitulo, filas, setFilas, conPrecio
         if (esAjuste(f)) {
           for (const [i, id] of f.objetivos.entries()) {
             // lo gastado se le cuenta al primero ("empanadas" → los dos paquetes, gasto al primero)
-            await ajustarProducto(id, { porPaquete: f.porPaquete, gastados: i === 0 ? f.gastados : 0, vence: f.vence })
+            await ajustarProducto(id, { porPaquete: f.porPaquete, gastados: i === 0 ? f.gastados : 0, vence: f.vence, congelar: f.congelar })
           }
           continue
         }
@@ -81,7 +81,7 @@ export default function Revision({ titulo, subtitulo, filas, setFilas, conPrecio
           vence: f.vence,
           venceEstimada: f.estimada,
           precio: f.precio || null,
-          ubicacion: categoria(f.categoria).ubicacion,
+          ubicacion: f.ubicacion ?? categoria(f.categoria).ubicacion,
           compradoEl: compra,
         })
         if (f.gastados > 0) await descontarProducto(producto.id, f.gastados)

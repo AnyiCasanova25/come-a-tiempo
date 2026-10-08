@@ -1,6 +1,6 @@
 import Dexie from 'dexie'
 import { hoyISO, sumarDias, diasEntre } from './fechas'
-import { estimarVidaUtil } from './categorias'
+import { estimarVidaUtil, vidaEnCongelador } from './categorias'
 
 // Base local (IndexedDB) del celular. Los ids son UUID y cada fila lleva
 // `actualizado` para poder sincronizar después con la familia (Supabase).
@@ -167,8 +167,11 @@ export async function descontarProducto(productoId, cantidad, { tipo = 'consumo'
  *               dos veces no descuenta dos veces.
  *   vence:      fecha real que traía el renglón
  */
-export async function ajustarProducto(productoId, { porPaquete = null, gastados = 0, vence = null } = {}) {
+export async function ajustarProducto(productoId, { porPaquete = null, gastados = 0, vence = null, congelar: alCongelador = false } = {}) {
   const activos = () => db.lotes.where('productoId').equals(productoId).filter((l) => l.estado === 'activo').toArray()
+  if (alCongelador) {
+    for (const lote of await activos()) if (lote.ubicacion !== 'congelador') await congelar(lote.id)
+  }
   if (porPaquete) {
     for (const lote of await activos()) {
       if ((lote.porPaquete ?? 1) !== Number(porPaquete)) await cambiarPorPaquete(lote.id, porPaquete)
@@ -307,4 +310,24 @@ export { hoyISO }
 export async function renombrarProducto(productoId, nombre) {
   if (!nombre.trim()) return
   await db.productos.update(productoId, { nombre: nombre.trim(), actualizado: ahora() })
+}
+
+/**
+ * "Está en el congelador": pasa el lote al congelador y estima cuánto aguanta allí
+ * desde el día de la compra (carne molida ~4 meses). Si ya tenía una fecha más
+ * lejana (la de la etiqueta), se deja esa.
+ */
+export async function congelar(loteId) {
+  const lote = await db.lotes.get(loteId)
+  if (!lote) return null
+  const producto = await db.productos.get(lote.productoId)
+  const estimada = sumarDias(lote.compradoEl ?? hoyISO(), vidaEnCongelador(producto?.nombre ?? '', producto?.categoria))
+  const vence = estimada > lote.vence ? estimada : lote.vence
+  await db.lotes.update(loteId, {
+    ubicacion: 'congelador',
+    vence,
+    venceEstimada: vence === estimada ? true : lote.venceEstimada,
+    actualizado: ahora(),
+  })
+  return vence
 }

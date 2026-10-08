@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { MinusCircle, PackageCheck, Trash2, CalendarDays, Eraser, Boxes, Pencil } from 'lucide-react'
+import { MinusCircle, PackageCheck, Trash2, CalendarDays, Eraser, Boxes, Pencil, Snowflake } from 'lucide-react'
 import Hoja from './Hoja'
 import { categoria } from '../categorias'
 import { nivel, textoVence, fechaCorta } from '../fechas'
-import { consumir, seAcabo, botar, eliminarLote, cambiarVence, cambiarPorPaquete, renombrarProducto } from '../db'
+import { consumir, seAcabo, botar, eliminarLote, cambiarVence, cambiarPorPaquete, renombrarProducto, congelar } from '../db'
 import { textoCantidad } from '../unidades'
 import { avisar } from './Aviso'
 
@@ -145,6 +145,18 @@ export function AccionesLote({ lote, onCerrar }) {
             <Boxes />
             {lote.porPaquete > 1 ? `Paquete de ${lote.porPaquete} unidades (cambiar)` : 'El paquete trae varias unidades'}
           </button>
+          {lote.ubicacion !== 'congelador' && (
+            <button
+              className="accion"
+              onClick={async () => {
+                const vence = await congelar(lote.id)
+                avisar(`${nombre}: en el congelador · ${textoVence(vence).toLowerCase()}`)
+                onCerrar()
+              }}
+            >
+              <Snowflake /> Está en el congelador (dura más)
+            </button>
+          )}
           <button className="accion" onClick={() => setModo('fecha')}>
             <CalendarDays /> {lote.venceEstimada ? 'Poner la fecha real' : 'Cambiar fecha'}
           </button>
