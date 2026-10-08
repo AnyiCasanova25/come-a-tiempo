@@ -14,7 +14,7 @@ Salchicha 14 - 28 oct 2026
 
 Salchicha 7 - 17 oct 2026
 
-Arepas - 29 oct 2026 - vienen 10
+Arepas - 29 oct 2026
 
 Tortillas - 03 nov 2026
 
