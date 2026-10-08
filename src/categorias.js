@@ -142,7 +142,7 @@ const CONGELADOR_POR_NOMBRE = [
   ['pescado', 180],
   ['mojarra', 180],
   ['tilapia', 180],
-  ['ahumad', 60],
+  ['ahumad', 25], // costilla ahumada: la familia la gasta en menos de un mes (máx. 25 días)
 ]
 const CONGELADOR_POR_CATEGORIA = { carnes: 150, embutidos: 60, pan: 90, congelados: 90, quesos: 120, lacteos: 60 }
 
